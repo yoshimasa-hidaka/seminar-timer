@@ -24,6 +24,7 @@ const state = {
   remainingSec: 20 * 60,// 現フェーズの残り。負になると超過（overtime）
   message: '',          // 司会から speaker へのメッセージ
   lang: 'ja',           // 表示言語 'ja' | 'en'（コントロールから切替・両画面で同期）
+  clockScope: 'phase',  // iPad の大きい時計 'phase'（現フェーズ）| 'total'（全体=質疑込み）
   bellEvent: { id: 0, type: null }, // id をインクリメントして1回だけ鳴らす
   lanIp: '',            // 起動時に確定（コントロールが iPad 用 URL/QR を作るため）
   port: 0,
@@ -123,6 +124,9 @@ function applyCommand(cmd) {
     case 'setLang':
       state.lang = cmd.lang === 'en' ? 'en' : 'ja';
       break;
+    case 'setClockScope':
+      state.clockScope = cmd.scope === 'total' ? 'total' : 'phase';
+      break;
     case 'testBell':
       ringBell(['warn', 'talkEnd', 'final'].includes(cmd.type) ? cmd.type : 'warn');
       break;
@@ -179,7 +183,8 @@ const server = http.createServer((req, res) => {
     const type = ext === '.html' ? 'text/html; charset=utf-8'
       : ext === '.js' ? 'text/javascript'
       : ext === '.css' ? 'text/css' : 'application/octet-stream';
-    res.writeHead(200, { 'Content-Type': type });
+    // no-cache＝更新後に古い HTML/JS が残らないよう毎回再検証させる
+    res.writeHead(200, { 'Content-Type': type, 'Cache-Control': 'no-cache' });
     res.end(data);
   });
 });

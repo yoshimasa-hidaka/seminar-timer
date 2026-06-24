@@ -42,6 +42,7 @@
     font-variant-numeric: tabular-nums;
     font-weight: 800; letter-spacing: -.02em;
     font-size: 38vh; line-height: 1;
+    cursor: pointer;
   }
   #clock .sign { font-size: 22vh; vertical-align: middle; margin-right: .05em; }
   #total {
@@ -92,6 +93,11 @@
 let audioCtx = null;
 let lastBellId = null; // null = 基準未取得（初回スナップショットでは鳴らさず同期だけ）
 let blinkOn = false;
+let lastSt = null;
+
+function postCmd(obj) {
+  fetch('/api/cmd', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(obj) }).catch(() => {});
+}
 
 function fmt(sec) {
   const over = sec < 0;
@@ -121,14 +127,22 @@ function beep(times, freq, dur) {
 }
 
 function render(st) {
-  const { over, body } = fmt(st.remainingSec);
+  lastSt = st;
+  // A: 大きい時計のスコープ（現フェーズ / 全体=質疑込み）
+  const totalRem = st.segment === 'qa' ? st.remainingSec : st.remainingSec + st.qaSec;
+  const scopeTotal = st.clockScope === 'total';
+  const bigSec = scopeTotal ? totalRem : st.remainingSec;
+
+  const { over, body } = fmt(bigSec);
   const clock = document.getElementById('clock');
   clock.innerHTML = (over ? '<span class="sign">+</span>' : '') + body;
 
-  // 色分け：緑（通常）→ 黄（予鈴以下）→ 赤（超過）。予鈴は現フェーズの値を使う
+  // 色分け：緑→黄（予鈴以下）→赤（超過）。phase スコープは現フェーズ予鈴で、total スコープは超過のみ
   const warnSec = st.segment === 'qa' ? st.qaWarnSec : st.talkWarnSec;
   document.body.classList.remove('warn', 'over');
-  if (st.remainingSec <= 0) {
+  if (scopeTotal) {
+    if (totalRem <= 0) document.body.classList.add('over');
+  } else if (st.remainingSec <= 0) {
     document.body.classList.add('over');
   } else if (warnSec > 0 && st.remainingSec <= warnSec) {
     document.body.classList.add('warn');
@@ -144,12 +158,17 @@ function render(st) {
   const segLabel = st.segment === 'qa' ? (en ? 'Q&A' : '質疑応答') : (en ? 'Talk' : '講演');
   document.querySelector('#segment .badge').textContent = segLabel;
 
-  // 全体のこり（質疑込み）の副表示：講演中だけ出す（質疑中は大きい数字と一致するため隠す）
+  // 副表示：もう一方のスコープを表示（講演フェーズだけ意味を持つ）
   const totalEl = document.getElementById('total');
   if (hasQa && st.segment === 'talk') {
-    const tot = fmt(st.remainingSec + st.qaSec);
-    totalEl.textContent = (en ? 'Total left ' : '全体のこり ')
-      + (tot.over ? '+' : '') + tot.body + (en ? ' (incl. Q&A)' : '（質疑応答こみ）');
+    if (scopeTotal) {
+      const p = fmt(st.remainingSec);
+      totalEl.textContent = (en ? 'This part ' : 'このフェーズ ') + (p.over ? '+' : '') + p.body;
+    } else {
+      const tot = fmt(totalRem);
+      totalEl.textContent = (en ? 'Total ' : '全体のこり ') + (tot.over ? '+' : '') + tot.body
+        + (en ? ' (incl. Q&A)' : '（質疑応答こみ）');
+    }
     totalEl.style.visibility = 'visible';
   } else {
     totalEl.style.visibility = 'hidden';
@@ -167,7 +186,6 @@ function render(st) {
   // 終了予定（壁時計）：実行中だけ表示＝今＋全体残り（質疑込み）
   const endEl = document.getElementById('endtime');
   if (st.phase === 'running') {
-    const totalRem = st.segment === 'qa' ? st.remainingSec : st.remainingSec + st.qaSec;
     const end = new Date(Date.now() + totalRem * 1000);
     const hm = String(end.getHours()).padStart(2, '0') + ':' + String(end.getMinutes()).padStart(2, '0');
     endEl.textContent = (en ? 'Ends ~ ' : '終了予定 ') + hm;
@@ -210,6 +228,12 @@ function connect() {
   es.onerror = () => { es.close(); setTimeout(connect, 1500); }; // 自動再接続
 }
 connect();
+
+// 大きい数字をタップ → スコープ（現フェーズ ⇄ 全体）を切替
+document.getElementById('clock').addEventListener('click', () => {
+  if (!lastSt || !(lastSt.qaSec > 0)) return;
+  postCmd({ action: 'setClockScope', scope: lastSt.clockScope === 'total' ? 'phase' : 'total' });
+});
 
 // 画面スリープ防止（Wake Lock）。OS が解放したり非表示→再表示で外れるので都度取り直す。
 let wakeLock = null;
