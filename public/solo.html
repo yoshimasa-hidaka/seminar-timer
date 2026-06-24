@@ -15,10 +15,10 @@
 <style>
   :root { --bg: #0a7d32; }
   * { margin: 0; padding: 0; box-sizing: border-box; }
-  html, body { height: 100%; }
+  html, body { height: 100%; overscroll-behavior: none; }
   body {
     color: #fff; font-family: -apple-system, "Hiragino Sans", system-ui, sans-serif;
-    overflow: hidden; -webkit-user-select: none; user-select: none;
+    overflow: hidden; overscroll-behavior: none; -webkit-user-select: none; user-select: none;
     display: flex; flex-direction: column; height: 100vh; height: 100dvh; background: #111;
   }
   /* 上：表示部（display.html 準拠の配色） */
@@ -43,7 +43,9 @@
   #endtime { text-align: center; font-size: 2.8vh; opacity: .7; font-variant-numeric: tabular-nums; min-height: 3.2vh; }
 
   /* 下：操作部 */
-  #panel { background: #1b1d21; color: #eee; padding: 10px 12px calc(10px + env(safe-area-inset-bottom)); overflow-y: auto; max-height: 52vh; }
+  /* overscroll-behavior: contain＝パネル端まで来てもスクロールがページ/フルスクリーンに伝播しない
+     （iOS でスクロールするとフルスクリーンが解除される問題の対策） */
+  #panel { background: #1b1d21; color: #eee; padding: 10px 12px calc(10px + env(safe-area-inset-bottom)); overflow-y: auto; -webkit-overflow-scrolling: touch; overscroll-behavior: contain; max-height: 52vh; }
   .phead { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-bottom: 8px; }
   .phead .row { display: flex; gap: 6px; }
   .toggle button { padding: 7px 12px; font-size: 13px; background: #2e3238; border-radius: 8px 0 0 8px; }
@@ -90,6 +92,9 @@
   /* 進行中は時間設定 UI を隠す（display.html/control.html と同じ規律） */
   #panel.running #editArea { display: none; }
   #panel.idle #adjustArea { display: none; }
+  /* 再生中はパネルを「再生/リセット/質疑へ」の行までに縮め、タイマーを最大化。
+     時間調整(adjust)・メッセージ・詳細設定はその下に隠れ、パネル内スクロールで出す。 */
+  #panel.running { max-height: 135px; }
 
   #message {
     position: fixed; left: 0; right: 0; top: 0; background: #fff; color: #111;
