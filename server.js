@@ -38,15 +38,49 @@ const state = {
 
 const clients = new Set(); // SSE 接続中の response 群
 
+const MAX_SEC = 36000; // 持ち時間・予鈴の上限（10時間）＝暴走値の sanity cap
+const clampSec = (sec) => Math.max(0, Math.min(MAX_SEC, Math.round(sec)));
+
+// プリセット正規化（[講演,質疑,予鈴1,予鈴2]・型/範囲を矯正）。setPresets と loadConfig で共用。
+function normalizePresets(arr) {
+  if (!Array.isArray(arr)) return null;
+  return arr
+    .filter((p) => Array.isArray(p) && p.length >= 2)
+    .map((p) => [
+      Math.max(1, Math.min(600, Math.round(Number(p[0]) || 0))),         // 講演（分・1–600）
+      Math.max(0, Math.min(600, Math.round(Number(p[1]) || 0))),         // 質疑
+      Math.max(0, Math.min(600, Math.round(Number(p[2] != null ? p[2] : 5) || 0))), // 予鈴1
+      Math.max(0, Math.min(600, Math.round(Number(p[3] != null ? p[3] : 0) || 0))), // 予鈴2
+    ])
+    .filter((p) => Number.isFinite(p[0]))
+    .slice(0, 12);
+}
+
 // ---- 設定の永続化（config.json に保存し再起動で復元。走行中の時計は保存しない）----
 const CONFIG_FILE = path.join(__dirname, 'config.json');
 const CONFIG_KEYS = ['talkSec', 'qaSec', 'talkWarnSec', 'talkWarn2Sec', 'bellSound', 'ipadBell', 'volume', 'pitch', 'presets', 'lang', 'clockScope'];
 const CONFIG_ACTIONS = new Set(['set', 'setBellSound', 'setIpadBell', 'setVolume', 'setPitch', 'setPresets', 'setLang', 'setClockScope']);
+// config.json は手編集/破損もありうるので、ロード時に型・範囲を検証（不正値は既定のまま＝fail-closed）
 function loadConfig() {
-  try {
-    const data = JSON.parse(fs.readFileSync(CONFIG_FILE, 'utf8'));
-    for (const k of CONFIG_KEYS) if (k in data) state[k] = data[k];
-  } catch (_) { /* 無ければ既定値のまま */ }
+  let data = null;
+  try { data = JSON.parse(fs.readFileSync(CONFIG_FILE, 'utf8')); } catch (_) {}
+  if (data && typeof data === 'object') {
+    const sec = (v) => { const n = Number(v); return Number.isFinite(n) ? clampSec(n) : null; };
+    const num = (v, lo, hi) => { const n = Number(v); return Number.isFinite(n) ? Math.max(lo, Math.min(hi, n)) : null; };
+    let x;
+    if ((x = sec(data.talkSec)) != null) state.talkSec = Math.max(60, x);
+    if ((x = sec(data.qaSec)) != null) state.qaSec = x;
+    if ((x = sec(data.talkWarnSec)) != null) state.talkWarnSec = x;
+    if ((x = sec(data.talkWarn2Sec)) != null) state.talkWarn2Sec = x;
+    if ((x = num(data.volume, 0, 1)) != null) state.volume = x;
+    if ((x = num(data.pitch, 0.25, 4)) != null) state.pitch = x;
+    if (['chime', 'bell', 'beep'].includes(data.bellSound)) state.bellSound = data.bellSound;
+    if (typeof data.ipadBell === 'boolean') state.ipadBell = data.ipadBell;
+    if (['ja', 'en'].includes(data.lang)) state.lang = data.lang;
+    if (['phase', 'total'].includes(data.clockScope)) state.clockScope = data.clockScope;
+    const ps = normalizePresets(data.presets);
+    if (ps) state.presets = ps;
+  }
   state.remainingSec = state.talkSec; // 復元した持ち時間で待機状態に
 }
 let saveTimer = null;
@@ -81,9 +115,10 @@ setInterval(() => {
     const before = state.remainingSec;
     state.remainingSec -= 1;
     const after = state.remainingSec;
-    // 予鈴（講演フェーズのみ）：予鈴1・予鈴2 をそれぞれ上から跨いだ瞬間に1鈴
+    // 予鈴（講演フェーズのみ）：予鈴1・予鈴2 をそれぞれ上から跨いだ瞬間に1鈴。
+    // 同値なら二重鳴りしないよう一意化。
     if (state.segment === 'talk') {
-      for (const w of [state.talkWarnSec, state.talkWarn2Sec]) {
+      for (const w of new Set([state.talkWarnSec, state.talkWarn2Sec])) {
         if (w > 0 && before > w && after <= w && after > 0) ringBell('warn');
       }
     }
@@ -122,10 +157,10 @@ function applyCommand(cmd) {
       const qaMin = Number(cmd.qaMin);
       const talkWarnMin = Number(cmd.talkWarnMin);
       const talkWarn2Min = Number(cmd.talkWarn2Min);
-      if (Number.isFinite(talkMin) && talkMin > 0) state.talkSec = Math.round(talkMin * 60);
-      if (Number.isFinite(qaMin) && qaMin >= 0) state.qaSec = Math.round(qaMin * 60);
-      if (Number.isFinite(talkWarnMin) && talkWarnMin >= 0) state.talkWarnSec = Math.round(talkWarnMin * 60);
-      if (Number.isFinite(talkWarn2Min) && talkWarn2Min >= 0) state.talkWarn2Sec = Math.round(talkWarn2Min * 60);
+      if (Number.isFinite(talkMin) && talkMin > 0) state.talkSec = Math.max(1, clampSec(talkMin * 60));
+      if (Number.isFinite(qaMin) && qaMin >= 0) state.qaSec = clampSec(qaMin * 60);
+      if (Number.isFinite(talkWarnMin) && talkWarnMin >= 0) state.talkWarnSec = clampSec(talkWarnMin * 60);
+      if (Number.isFinite(talkWarn2Min) && talkWarn2Min >= 0) state.talkWarn2Sec = clampSec(talkWarn2Min * 60);
       if (typeof cmd.title === 'string') state.title = cmd.title.slice(0, 120);
       state.segment = 'talk';
       state.remainingSec = state.talkSec;
@@ -172,20 +207,11 @@ function applyCommand(cmd) {
       if (Number.isFinite(p)) state.pitch = Math.max(0.25, Math.min(4, p));
       break;
     }
-    case 'setPresets':
-      if (Array.isArray(cmd.presets)) {
-        state.presets = cmd.presets
-          .filter((p) => Array.isArray(p) && p.length >= 2)
-          .map((p) => [
-            Math.max(1, Math.round(Number(p[0]) || 0)),                       // 講演
-            Math.max(0, Math.round(Number(p[1]) || 0)),                       // 質疑
-            Math.max(0, Math.round(Number(p[2] != null ? p[2] : 5) || 0)),    // 予鈴1
-            Math.max(0, Math.round(Number(p[3] != null ? p[3] : 0) || 0)),    // 予鈴2（既定0）
-          ])
-          .filter((p) => Number.isFinite(p[0]))
-          .slice(0, 12);
-      }
+    case 'setPresets': {
+      const ps = normalizePresets(cmd.presets);
+      if (ps) state.presets = ps;
       break;
+    }
     case 'testBell':
       ringBell(['warn', 'talkEnd', 'final'].includes(cmd.type) ? cmd.type : 'warn');
       break;
