@@ -20,6 +20,14 @@ if ! command -v node >/dev/null 2>&1; then
   exit 1
 fi
 
+# Node が古すぎる場合は警告（動作には 14 以上を推奨）
+major=$(node --version 2>/dev/null | sed 's/^v//; s/\..*//')
+if [ "${major:-0}" -lt 14 ] 2>/dev/null; then
+  echo "  [注意] Node.js $(node --version) は古い可能性があります。"
+  echo "         不具合が出たら https://nodejs.org/ の LTS 版へ更新してください。"
+  echo ""
+fi
+
 node server.js
 echo ""
 read -n 1 -s -r -p "サーバを終了しました。Enter キーで閉じます…"

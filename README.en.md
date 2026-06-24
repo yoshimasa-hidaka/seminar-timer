@@ -20,9 +20,7 @@ Zero dependencies (Node.js standard library only) and **fully offline** — no `
 
 This app runs on **Node.js**. The recipient only needs to check this once:
 
-> **Check your environment first**: double-click `check.command` to verify Node.js (presence/version) and that the files are complete — it does not start the server. If you see `[NG]`, see below.
-
-1. **Install Node.js**: if it isn't installed, `start.command` shows a notice. Install the **LTS** version from [nodejs.org](https://nodejs.org/) and double-click again.
+1. **Install Node.js**: if it isn't installed, `start.command` shows a notice (and warns if the version is too old). Install the **LTS** version from [nodejs.org](https://nodejs.org/) and double-click again.
 2. **If macOS says "cannot verify the developer"** (Gatekeeper quarantine on downloaded/emailed/AirDropped files):
    **right-click `start.command` → Open → Open** (first time only).
 3. **If double-clicking opens a text editor** (the executable bit was lost when unzipping):
@@ -97,7 +95,6 @@ If there is no usable venue WiFi, make a closed two-device WiFi without any inte
 | `public/bell.js` | Bell-sound synthesis (WebAudio, shared by both screens) |
 | `public/qr.js` | QR code generation (offline, no dependencies) |
 | `start.command` | Double-click launcher for Finder |
-| `check.command` | Environment check (Node presence, etc.; does not start the server) |
 | `config.json` | Runtime-saved settings (gitignored, per device) |
 
 No dependencies. Runs on Node.js (macOS). It also runs elsewhere via `node server.js` (the macOS-specific bits are only browser auto-open and IP auto-detection).

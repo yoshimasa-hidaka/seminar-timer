@@ -20,9 +20,7 @@
 
 このアプリは **Node.js** で動く。受け取った人が最初の一回だけ確認すること：
 
-> **まず環境チェック**：`check.command` をダブルクリックすると、Node.js の有無・バージョン・ファイルの揃いを確認できる（起動はしない）。`[NG]` が出たら下を参照。
-
-1. **Node.js を入れる**：未インストールなら `start.command` が案内を出す。
+1. **Node.js を入れる**：未インストールなら `start.command` が案内を出す（古い版なら警告も）。
    [nodejs.org](https://nodejs.org/) の **LTS 版**をインストール → 再度ダブルクリック。
 2. **「開発元を確認できない」と出たら**（ネット/メール/AirDrop 経由の保護）：
    `start.command` を **右クリック →「開く」→「開く」**（初回だけ）。
@@ -98,7 +96,6 @@
 | `public/bell.js` | ベル音合成（WebAudio・両画面で共用） |
 | `public/qr.js` | QR コード生成（オフライン・依存なし） |
 | `start.command` | Finder からダブルクリック起動 |
-| `check.command` | 環境チェック（Node 有無等・起動はしない） |
 | `config.json` | 実行時に保存される設定（gitignore・端末ごと） |
 
 依存パッケージなし。Node.js（macOS）で動作。Linux/他環境でも `node server.js` で起動可（macOS 固有はブラウザ自動オープン・IP 自動検出程度）。
