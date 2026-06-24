@@ -2,8 +2,11 @@
 <html lang="ja">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="講演タイマー">
 <title>講演タイマー — 表示</title>
 <style>
   :root { --bg: #0a7d32; }
@@ -75,9 +78,15 @@
   #overlay h1 { font-size: 8vh; }
   #overlay p { font-size: 4vh; opacity: .7; }
   #overlay.hidden { display: none; }
+  #audiowarn {
+    position: fixed; top: 0; left: 50%; transform: translateX(-50%);
+    background: #b3151f; color: #fff; font-size: 3.2vh; font-weight: 700;
+    padding: 1.2vh 4vw; border-radius: 0 0 14px 14px; z-index: 8; cursor: pointer;
+  }
 </style>
 </head>
 <body>
+  <div id="audiowarn">🔇 タップで音声をON（鳴らない時は端末の音量/消音も確認）</div>
   <div id="segment"><span class="badge"></span></div>
   <div id="clock">--:--</div>
   <div id="total"></div>
@@ -92,10 +101,10 @@
 
 <script src="bell.js"></script>
 <script>
-let audioCtx = null;
 let lastBellId = null; // null = 基準未取得（初回スナップショットでは鳴らさず同期だけ）
 let blinkOn = false;
 let lastSt = null;
+let audioEverOn = false; // 一度でも音声が有効になったか（バナーのラッチ用）
 
 function postCmd(obj) {
   fetch('/api/cmd', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(obj) }).catch(() => {});
@@ -110,23 +119,8 @@ function fmt(sec) {
   return { over, body };
 }
 
-function beep(times, freq, dur) {
-  if (!audioCtx) return;
-  let t = audioCtx.currentTime;
-  for (let i = 0; i < times; i++) {
-    const osc = audioCtx.createOscillator();
-    const g = audioCtx.createGain();
-    osc.type = 'sine';
-    osc.frequency.value = freq;
-    g.gain.setValueAtTime(0.0001, t);
-    g.gain.exponentialRampToValueAtTime(0.6, t + 0.02);
-    g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
-    osc.connect(g).connect(audioCtx.destination);
-    osc.start(t);
-    osc.stop(t + dur);
-    t += dur + 0.18;
-  }
-}
+// ユーザー操作で音声を解錠（AudioContext は bell.js が一元管理）
+function unlockAudio() { if (window.Bell) { Bell.unlock(); audioEverOn = true; } }
 
 function render(st) {
   lastSt = st;
@@ -210,7 +204,8 @@ function render(st) {
       lastBellId = st.bellEvent.id;
     } else if (st.bellEvent.id > lastBellId) {
       lastBellId = st.bellEvent.id;
-      if (window.Bell) Bell.playBell(audioCtx, st.bellEvent.type, st.bellSound);
+      // iOS は放置で AudioContext が suspended になるので鳴らす直前に resume
+      if (window.Bell && st.ipadBell !== false) Bell.ring(st.bellEvent.type, st.bellSound); // iPad音 ON 時のみ
     }
   }
 }
@@ -239,23 +234,40 @@ document.getElementById('clock').addEventListener('click', () => {
 });
 
 // 画面スリープ防止（Wake Lock）。OS が解放したり非表示→再表示で外れるので都度取り直す。
+// 画面スリープ防止（Screen Wake Lock／iPadOS 16.4+ で有効）。解放されたら取り直す。
 let wakeLock = null;
 async function acquireWakeLock() {
   try {
-    if ('wakeLock' in navigator) wakeLock = await navigator.wakeLock.request('screen');
-  } catch (_) { /* 取得不可な環境は無視 */ }
+    if ('wakeLock' in navigator && !wakeLock) {
+      wakeLock = await navigator.wakeLock.request('screen');
+      wakeLock.addEventListener('release', () => { wakeLock = null; });
+    }
+  } catch (_) { /* 取得不可な環境は無視（端末設定の自動ロックなしで補う） */ }
 }
+acquireWakeLock(); // 起動時にも試みる
 document.addEventListener('visibilitychange', () => {
-  if (document.visibilityState === 'visible') acquireWakeLock();
+  if (document.visibilityState === 'visible') { acquireWakeLock(); if (window.Bell) Bell.unlock(); }
 });
+// 画面のどこを触っても：音声を有効化＋スリープ防止を取り直す
+document.addEventListener('pointerdown', () => { unlockAudio(); acquireWakeLock(); });
 
-// 音声アンロック＆全画面化
+// 音声が一度でも有効になるまで赤バナーで促す（有効化後はラッチして二度と出さない＝誤警告防止）
+const audiowarn = document.getElementById('audiowarn');
+audiowarn.addEventListener('click', () => {
+  unlockAudio();
+  if (window.Bell) Bell.ring('warn', (lastSt && lastSt.bellSound) || Bell.DEFAULT); // 確認音
+});
+const audiowarnTimer = setInterval(() => {
+  if (window.Bell && Bell.running()) audioEverOn = true;
+  if (audioEverOn) { audiowarn.style.display = 'none'; clearInterval(audiowarnTimer); }
+}, 500);
+
+// 起動オーバーレイのタップ＝解錠＋全画面（確認音は控えめに warn 1音）
 document.getElementById('overlay').addEventListener('click', () => {
-  audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-  if (audioCtx.state === 'suspended') audioCtx.resume();
-  beep(1, 660, 0.05); // 無音に近いキックでアンロック
+  unlockAudio();
+  if (window.Bell) Bell.ring('warn', (lastSt && lastSt.bellSound) || Bell.DEFAULT); // 音が出ることの確認
   document.getElementById('overlay').classList.add('hidden');
-  acquireWakeLock(); // ユーザー操作のタイミングで画面スリープ防止を取得
+  acquireWakeLock();
   if (document.documentElement.requestFullscreen) {
     document.documentElement.requestFullscreen().catch(() => {});
   }

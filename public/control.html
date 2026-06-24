@@ -19,7 +19,8 @@
   }
   .toggle button + button { border-radius: 0 8px 8px 0; }
   .toggle button.active { background: #2e7d32; }
-  #btnMacBell { border-radius: 8px; padding: 8px 14px; font-size: 14px; }
+  #btnMacBell, #btnIpadBell { border-radius: 8px; padding: 8px 14px; font-size: 14px; }
+  #btnIpadBell.on { background: #2e7d32; }
   .clock {
     text-align: center; font-variant-numeric: tabular-nums; font-weight: 800;
     font-size: 64px; padding: 10px; border-radius: 12px; margin-bottom: 4px;
@@ -92,6 +93,7 @@
 <body>
   <div class="topbar">
     <div class="row" style="flex:none">
+      <button id="btnIpadBell" class="muted" style="flex:none"></button>
       <button id="btnMacBell" class="muted" style="flex:none" data-i18n="macBellOff"></button>
       <button class="muted bellbtn" data-bell="warn" title="予鈴（1鈴）">🔔1</button>
       <button class="muted bellbtn" data-bell="talkEnd" title="講演終了（2鈴）">🔔2</button>
@@ -231,6 +233,7 @@ const I18N = {
     connH: 'iPad の接続（QR）', keyH: 'キーボード操作（Mac）',
     keyHint: 'スペース＝開始/一時停止　R＝リセット　Q＝質疑へ　T＝講演に戻す　←/→＝±10秒　↑/↓＝±1分',
     macBellOn: '🔔 Mac音 オン', macBellOff: '🔕 Mac音 オフ',
+    ipadBellOn: '🔔 iPad音 オン', ipadBellOff: '🔕 iPad音 オフ',
     connPrefix: '📱 iPad で開く', connTapHint: '（タップで QR）',
     msgShowing: '表示中', msgNone: '',
     sumTalk: '講演', sumQa: '質疑', sumTotal: '全体', minU: '分',
@@ -260,6 +263,7 @@ const I18N = {
     connH: 'iPad connection (QR)', keyH: 'Keyboard (Mac)',
     keyHint: 'Space = start/pause   R = reset   Q = to Q&A   T = back to talk   ←/→ = ±10 s   ↑/↓ = ±1 min',
     macBellOn: '🔔 Mac sound ON', macBellOff: '🔕 Mac sound OFF',
+    ipadBellOn: '🔔 iPad sound ON', ipadBellOff: '🔕 iPad sound OFF',
     connPrefix: '📱 Open on iPad', connTapHint: '(tap for QR)',
     msgShowing: 'Showing', msgNone: '',
     sumTalk: 'Talk', sumQa: 'Q&A', sumTotal: 'Total', minU: ' min',
@@ -280,7 +284,6 @@ let lang = 'ja';
 let lastState = null;
 let qrDrawnFor = '';      // 同じ URL で再描画しない
 let macBell = false;      // F: Mac でもベルを鳴らす
-let audioCtx = null;
 let lastBellId = null;    // null=基準未取得（初回は鳴らさない）
 let settingsSynced = false; // 初回の状態で設定欄を実値に同期したか
 
@@ -314,7 +317,7 @@ function applyLang() {
 function buildBellSounds() {
   const wrap = document.getElementById('bellSounds');
   if (!wrap || !window.Bell) return;
-  const cur = (lastState && lastState.bellSound) || 'beep';
+  const cur = (lastState && lastState.bellSound) || (window.Bell ? Bell.DEFAULT : 'chime');
   wrap.innerHTML = '';
   Bell.ORDER.forEach((name) => {
     const b = document.createElement('button');
@@ -322,9 +325,8 @@ function buildBellSounds() {
     b.dataset.sound = name;
     b.textContent = (Bell.LABELS[name] && Bell.LABELS[name][lang]) || name;
     b.onclick = () => {
-      ensureAudio();
       cmd({ action: 'setBellSound', sound: name });
-      if (window.Bell && audioCtx) Bell.playBell(audioCtx, 'warn', name); // 試聴
+      if (window.Bell) { Bell.unlock(); Bell.ring('warn', name); } // 試聴
     };
     wrap.appendChild(b);
   });
@@ -404,20 +406,22 @@ function fmt(sec) {
   return (sec < 0 ? '+' : '') + b;
 }
 
-// --- F: Mac での発音 ---
-function ensureAudio() {
-  if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-  if (audioCtx.state === 'suspended') audioCtx.resume();
-}
+// --- F: Mac での発音（AudioContext は bell.js が一元管理）---
 document.getElementById('btnMacBell').onclick = () => {
   macBell = !macBell;
-  if (macBell) ensureAudio();
+  if (macBell && window.Bell) Bell.unlock();
   const b = document.getElementById('btnMacBell');
   b.textContent = macBell ? t().macBellOn : t().macBellOff;
   b.classList.toggle('on', macBell);
 };
 // どの操作でも一度オーディオを解錠（自動再生制限の回避）
-document.addEventListener('pointerdown', () => { if (macBell) ensureAudio(); }, { once: false });
+document.addEventListener('pointerdown', () => { if (macBell && window.Bell) Bell.unlock(); });
+
+// iPad 音の ON/OFF（サーバ状態 ipadBell を切替）
+document.getElementById('btnIpadBell').onclick = () => {
+  const on = lastState ? (lastState.ipadBell !== false) : true;
+  cmd({ action: 'setIpadBell', on: !on });
+};
 
 function setLang(l) { lang = l; applyLang(); cmd({ action: 'setLang', lang: l }); }
 document.getElementById('langJa').onclick = () => setLang('ja');
@@ -554,6 +558,10 @@ function renderState(st) {
   // iPad に今表示中のメッセージ（古い message の消し忘れ防止）
   document.getElementById('msgActive').textContent = st.message ? (d.msgShowing + ': ' + st.message) : '';
   document.querySelectorAll('#bellSounds button').forEach((b) => b.classList.toggle('active', b.dataset.sound === st.bellSound));
+  const ib = document.getElementById('btnIpadBell'); // iPad音トグルの表示（サーバ状態を反映）
+  const ipadOn = st.ipadBell !== false;
+  ib.textContent = ipadOn ? d.ipadBellOn : d.ipadBellOff;
+  ib.classList.toggle('on', ipadOn);
 }
 
 function connect() {
@@ -575,7 +583,7 @@ function connect() {
         if (lastBellId === null) lastBellId = st.bellEvent.id;
         else if (st.bellEvent.id > lastBellId) {
           lastBellId = st.bellEvent.id;
-          if (macBell && audioCtx && window.Bell) Bell.playBell(audioCtx, st.bellEvent.type, st.bellSound);
+          if (macBell && window.Bell) Bell.ring(st.bellEvent.type, st.bellSound);
         }
       }
       lastState = st;
