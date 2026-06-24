@@ -40,6 +40,8 @@
   body.running #schedule,
   body.running #presetBlock,
   body.running #setBlock { display: none; }
+  /* 待機中（未開始）は ±時間調整を非表示（時間はサマリーで設定するため） */
+  body.idle #adjustBlock { display: none; }
   .cBadge { text-align: center; font-size: 15px; font-weight: 700; color: #cdd; margin-bottom: 4px; }
   .cTotal { text-align: center; font-size: 15px; color: #9aa; margin: 4px 0; min-height: 18px;
     font-variant-numeric: tabular-nums; }
@@ -66,6 +68,8 @@
   .connbar b { color: #8fd0a0; font-weight: 600; font-variant-numeric: tabular-nums; }
   #btnMacBell.on { background: #2e7d32; }
   #btnReset { flex: none; padding: 9px 18px; font-size: 14px; }
+  #btnToQa { flex: none; padding: 9px 18px; font-size: 14px; }
+  .bellbtn { flex: none; padding: 9px 12px; font-size: 14px; }
   .msgActive { text-align: center; font-size: 14px; min-height: 20px; margin-top: 10px; color: #e0b34a; }
   #schedule { -webkit-user-select: none; user-select: none; }
   .setSummary { display: flex; gap: 8px; margin: 6px 0 4px; }
@@ -103,11 +107,20 @@
     <button class="primary big" id="btnStart" data-i18n="start"></button>
     <button class="big muted" id="btnPause" data-i18n="pause"></button>
   </div>
-  <div class="row" style="margin-top:8px; justify-content:flex-end">
+  <div class="row" style="margin-top:8px">
+    <button class="muted bellbtn" data-bell="warn" title="予鈴（1鈴）">🔔1</button>
+    <button class="muted bellbtn" data-bell="talkEnd" title="講演終了（2鈴）">🔔2</button>
+    <button class="muted bellbtn" data-bell="final" title="全体終了（3鈴）">🔔3</button>
+    <span style="flex:1"></span>
     <button class="muted" id="btnReset" data-i18n="reset"></button>
+    <button class="primary" id="btnToQa" data-i18n="toQa"></button>
   </div>
 
   <div id="schedule">
+    <div id="presetBlock">
+      <h2 data-i18n="presetH"></h2>
+      <div class="grid4 preset" id="presets"></div>
+    </div>
     <div class="setSummary">
       <div>
         <span data-i18n="sumTalk"></span>
@@ -134,21 +147,35 @@
         </div>
       </div>
     </div>
+    <div class="setSummary">
+      <div>
+        <span data-i18n="sumTalkWarn"></span>
+        <div class="stepRow">
+          <button class="step" data-dim="talkWarn" data-dir="-1">−</button>
+          <b id="valTalkWarn">–</b>
+          <button class="step" data-dim="talkWarn" data-dir="1">＋</button>
+        </div>
+      </div>
+      <div>
+        <span data-i18n="sumQaWarn"></span>
+        <div class="stepRow">
+          <button class="step" data-dim="qaWarn" data-dir="-1">−</button>
+          <b id="valQaWarn">–</b>
+          <button class="step" data-dim="qaWarn" data-dir="1">＋</button>
+        </div>
+      </div>
+    </div>
     <div class="setSummaryHint" id="setHint" data-i18n="setHint"></div>
   </div>
 
-  <h2 data-i18n="phaseH"></h2>
-  <div class="grid2">
-    <button id="btnToTalk" class="muted" data-i18n="toTalk"></button>
-    <button id="btnToQa" class="primary" data-i18n="toQa"></button>
-  </div>
-
-  <h2 data-i18n="adjustH"></h2>
-  <div class="grid4">
-    <button data-adj="-60" data-i18n="m1"></button>
-    <button data-adj="-10" data-i18n="s10m"></button>
-    <button data-adj="10" data-i18n="s10p"></button>
-    <button data-adj="60" data-i18n="p1"></button>
+  <div id="adjustBlock">
+    <h2 data-i18n="adjustH"></h2>
+    <div class="grid4">
+      <button data-adj="-60" data-i18n="m1"></button>
+      <button data-adj="-10" data-i18n="s10m"></button>
+      <button data-adj="10" data-i18n="s10p"></button>
+      <button data-adj="60" data-i18n="p1"></button>
+    </div>
   </div>
 
   <h2 data-i18n="msgH"></h2>
@@ -162,11 +189,6 @@
 
   <details>
     <summary data-i18n="moreH"></summary>
-
-    <div id="presetBlock">
-      <h2 data-i18n="presetH"></h2>
-      <div class="grid4 preset" id="presets"></div>
-    </div>
 
     <div id="setBlock">
       <h2 data-i18n="setH"></h2>
@@ -183,13 +205,6 @@
     <div id="conn">
       <div id="connUrl"></div>
       <canvas id="qr" width="0" height="0"></canvas>
-    </div>
-
-    <h2 data-i18n="bellH"></h2>
-    <div class="row">
-      <button data-bell="warn" class="muted" data-i18n="bellWarn"></button>
-      <button data-bell="talkEnd" class="muted" data-i18n="bellTalkEnd"></button>
-      <button data-bell="final" class="muted" data-i18n="bellFinal"></button>
     </div>
 
     <h2 data-i18n="keyH"></h2>
@@ -218,8 +233,9 @@ const I18N = {
     connPrefix: '📱 iPad で開く', connTapHint: '（タップで QR）',
     msgShowing: '表示中', msgNone: '',
     sumTalk: '講演', sumQa: '質疑', sumTotal: '全体', minU: '分',
+    sumTalkWarn: '講演予鈴', sumQaWarn: '質疑予鈴',
     scopeLabel: 'iPad の大きい表示', scopePhase: '現フェーズ', scopeTotal: '全体',
-    setHint: '−／＋ で時間調整・ダブルクリックでプリセット',
+    setHint: '−／＋ または プリセットで時間を設定',
     setHintRunning: '⏸ 進行中は時間設定できません（一時停止すると変更可）',
     lockMsg: '一時停止してから操作してください',
     running: '進行中', paused: '一時停止中', standby: '待機中', talk: '講演', qa: '質疑応答',
@@ -245,8 +261,9 @@ const I18N = {
     connPrefix: '📱 Open on iPad', connTapHint: '(tap for QR)',
     msgShowing: 'Showing', msgNone: '',
     sumTalk: 'Talk', sumQa: 'Q&A', sumTotal: 'Total', minU: ' min',
+    sumTalkWarn: 'Talk warn', sumQaWarn: 'Q&A warn',
     scopeLabel: 'iPad big display', scopePhase: 'Current part', scopeTotal: 'Total',
-    setHint: '−/＋ to adjust · double-click for presets',
+    setHint: '−/＋ or presets to set the time',
     setHintRunning: '⏸ Pause to change durations (disabled while running)',
     lockMsg: 'Pause first to change settings',
     running: 'Running', paused: 'Paused', standby: 'Standby', talk: 'Talk', qa: 'Q&A',
@@ -310,12 +327,14 @@ function buildPresets() {
 }
 
 // 設定サマリー：講演／質疑／全体を最上部に常時表示。−／＋で編集可・現在値(サーバ)を反映。
-function renderSummary(tkMin, qaMin) {
+function renderSummary(tkMin, qaMin, twMin, qwMin) {
   const d = t();
   const m = (n) => (Math.round(n * 10) / 10) + d.minU;
   document.getElementById('valTalk').textContent = m(tkMin);
   document.getElementById('valQa').textContent = m(qaMin);
   document.getElementById('valTotal').textContent = m(tkMin + qaMin);
+  document.getElementById('valTalkWarn').textContent = m(twMin);
+  document.getElementById('valQaWarn').textContent = m(qwMin);
 }
 
 // B/C: −／＋ で講演・質疑・全体を編集（全体± は質疑固定で講演に反映＝C）。set で確定。
@@ -326,14 +345,21 @@ document.querySelectorAll('.setSummary .step').forEach((btn) => {
     if (!lastState) return;
     let talk = Math.round(lastState.talkSec / 60);
     let qa = Math.round(lastState.qaSec / 60);
+    let talkWarn = Math.round(lastState.talkWarnSec / 60);
+    let qaWarn = Math.round(lastState.qaWarnSec / 60);
     const dir = Number(btn.dataset.dir);
-    if (btn.dataset.dim === 'qa') qa = Math.max(0, qa + dir);
-    else talk = Math.max(1, talk + dir);          // 'talk' と 'total' はどちらも講演を増減
+    switch (btn.dataset.dim) {
+      case 'qa': qa = Math.max(0, qa + dir); break;
+      case 'talkWarn': talkWarn = Math.max(0, talkWarn + dir); break;
+      case 'qaWarn': qaWarn = Math.max(0, qaWarn + dir); break;
+      default: talk = Math.max(1, talk + dir);     // 'talk' と 'total' はどちらも講演を増減
+    }
     document.getElementById('setTalk').value = talk;
     document.getElementById('setQa').value = qa;
+    document.getElementById('setTalkWarn').value = talkWarn;
+    document.getElementById('setQaWarn').value = qaWarn;
     cmd({ action: 'set', talkMin: talk, qaMin: qa,
-      talkWarnMin: document.getElementById('setTalkWarn').value,
-      qaWarnMin: document.getElementById('setQaWarn').value,
+      talkWarnMin: talkWarn, qaWarnMin: qaWarn,
       title: document.getElementById('setTitle').value });
   };
 });
@@ -393,7 +419,6 @@ document.getElementById('langEn').onclick = () => setLang('en');
 document.getElementById('btnStart').onclick = () => cmd({ action: 'start' });
 document.getElementById('btnPause').onclick = () => cmd({ action: 'pause' });
 document.getElementById('btnReset').onclick = () => cmd({ action: 'reset' });
-document.getElementById('btnToTalk').onclick = () => cmd({ action: 'segment', to: 'talk' });
 document.getElementById('btnToQa').onclick = () => cmd({ action: 'segment', to: 'qa' });
 
 document.querySelectorAll('[data-adj]').forEach(b =>
@@ -468,12 +493,6 @@ document.getElementById('connbar').onclick = () => {
   document.getElementById('qr').scrollIntoView({ behavior: 'smooth', block: 'center' });
 };
 // サマリー（講演/質疑/全体）をダブルクリック → 詳細設定を開いてプリセットを先頭に表示
-document.getElementById('schedule').ondblclick = () => {
-  const det = document.querySelector('details');
-  if (det) det.open = true;
-  document.getElementById('presets').scrollIntoView({ behavior: 'smooth', block: 'center' });
-};
-
 function renderState(st) {
   const d = t();
   const en = lang === 'en';
@@ -511,11 +530,13 @@ function renderState(st) {
 
   document.getElementById('sub').textContent = st.title || '';
   // 最上部のサマリー（講演／質疑／全体）を現在の設定で更新
-  if (Number.isFinite(st.talkSec) && Number.isFinite(st.qaSec)) renderSummary(st.talkSec / 60, st.qaSec / 60);
+  if (Number.isFinite(st.talkSec) && Number.isFinite(st.qaSec))
+    renderSummary(st.talkSec / 60, st.qaSec / 60, (st.talkWarnSec || 0) / 60, (st.qaWarnSec || 0) / 60);
 
   // 進行中は時間変更 UI（−／＋・プリセット・個別設定）を非表示（CSS body.running）。
   const running = st.phase === 'running';
   document.body.classList.toggle('running', running);
+  document.body.classList.toggle('idle', st.phase === 'idle'); // 待機中は ±調整を隠す
   document.getElementById('setHint').textContent = running ? d.setHintRunning : d.setHint;
   document.getElementById('setRunNote').style.display = running ? '' : 'none';
   // iPad に今表示中のメッセージ（古い message の消し忘れ防止）
