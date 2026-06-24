@@ -64,6 +64,16 @@
 
   // --- AudioContext 管理（集約） ---
   let ctx = null;
+  let volume = 0.9; // 0–1（master gain）
+  function setVolume(v) {
+    const n = Number(v);
+    if (Number.isFinite(n)) volume = Math.max(0, Math.min(1, n));
+  }
+  let pitch = 1.0; // 全音の周波数倍率（音の高さ）
+  function setPitch(p) {
+    const n = Number(p);
+    if (Number.isFinite(n)) pitch = Math.max(0.25, Math.min(4, n));
+  }
 
   function getCtx() {
     try {
@@ -90,10 +100,10 @@
     const seq = SEQ[bellType];
     if (!seq) return;
     const master = c.createGain();
-    master.gain.value = 0.9;
+    master.gain.value = volume;
     master.connect(c.destination);
     let t = c.currentTime + 0.02;
-    for (const f of seq) { voice(c, master, f, t); t += STEP; }
+    for (const f of seq) { voice(c, master, f * pitch, t); t += STEP; } // ピッチ倍率を適用
     // 後始末（master ノードのリーク防止）
     const ms = (seq.length * STEP + 2.5) * 1000;
     try { setTimeout(() => { try { master.disconnect(); } catch (_) {} }, ms); } catch (_) {}
@@ -111,7 +121,7 @@
     } catch (_) { go(); }
   }
 
-  const api = { VOICES, ORDER, LABELS, SEQ, DEFAULT, unlock, ring, running };
+  const api = { VOICES, ORDER, LABELS, SEQ, DEFAULT, unlock, ring, running, setVolume, setPitch };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   if (root) root.Bell = api;
 })(typeof window !== 'undefined' ? window : null);

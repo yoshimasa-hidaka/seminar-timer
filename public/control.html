@@ -37,6 +37,8 @@
   }
   button:active { transform: scale(.97); }
   button.primary { background: #2e7d32; }
+  button:disabled { opacity: .35; cursor: not-allowed; }
+  button:disabled:active { transform: none; }
   /* 再生中は時間設定の項目ごと非表示（上部サマリー・プリセット・個別設定） */
   body.running #schedule,
   body.running #presetBlock,
@@ -59,6 +61,7 @@
   .grid4 { display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 8px; }
   .quick button, .preset button { background: #353a44; font-size: 15px; padding: 12px 8px; }
   #presets { grid-template-columns: repeat(5, 1fr); }
+  .presetchip { flex: none; font-size: 13px; padding: 8px 12px; }
   .muted { background: #2e3238; }
   details { margin-top: 18px; border-top: 1px solid #2e3238; padding-top: 6px; }
   summary { cursor: pointer; color: #9aa; font-size: 15px; font-weight: 600; padding: 8px 0; }
@@ -153,11 +156,11 @@
         </div>
       </div>
       <div>
-        <span data-i18n="sumQaWarn"></span>
+        <span data-i18n="sumTalkWarn2"></span>
         <div class="stepRow">
-          <button class="step" data-dim="qaWarn" data-dir="-1">−</button>
-          <b id="valQaWarn">–</b>
-          <button class="step" data-dim="qaWarn" data-dir="1">＋</button>
+          <button class="step" data-dim="talkWarn2" data-dir="-1">−</button>
+          <b id="valTalkWarn2">–</b>
+          <button class="step" data-dim="talkWarn2" data-dir="1">＋</button>
         </div>
       </div>
     </div>
@@ -195,13 +198,19 @@
       <div class="field"><label data-i18n="lblTalk"></label><input id="setTalk" type="number" inputmode="decimal" value="20"></div>
       <div class="field"><label data-i18n="lblQa"></label><input id="setQa" type="number" inputmode="decimal" value="10"></div>
       <div class="field"><label data-i18n="lblTalkWarn"></label><input id="setTalkWarn" type="number" inputmode="decimal" value="5"></div>
-      <div class="field"><label data-i18n="lblQaWarn"></label><input id="setQaWarn" type="number" inputmode="decimal" value="2"></div>
+      <div class="field"><label data-i18n="lblTalkWarn2"></label><input id="setTalkWarn2" type="number" inputmode="decimal" value="1"></div>
       <button class="primary" id="btnSet" data-i18n="applySet"></button>
     </div>
     <div id="setRunNote" class="setSummaryHint" data-i18n="setHintRunning" style="display:none"></div>
 
+    <h2 data-i18n="presetEditH"></h2>
+    <div class="row" id="presetList" style="margin-bottom:8px"></div>
+    <button class="muted" id="btnSavePreset" data-i18n="savePreset"></button>
+
     <h2 data-i18n="bellSoundH"></h2>
     <div class="row" id="bellSounds"></div>
+    <div class="field"><label data-i18n="volLabel"></label><input type="range" id="volSlider" min="0" max="1" step="0.05" value="0.9"></div>
+    <div class="field"><label data-i18n="pitchLabel"></label><input type="range" id="pitchSlider" min="0.5" max="2" step="0.05" value="1"></div>
 
     <h2 data-i18n="connH"></h2>
     <div id="conn">
@@ -224,9 +233,10 @@ const I18N = {
     msgH: 'メッセージを iPad に表示', send: '送信', clear: '消す',
     moreH: '詳細設定（個別設定・接続・キーボード）',
     presetH: 'プリセット（講演＋質疑）',
+    presetEditH: 'プリセット編集（✕で削除）', savePreset: '＋ 今の設定をプリセットに保存',
     setH: '個別に設定',
     lblTitle: '講演タイトル', lblTalk: '講演（分）', lblQa: '質疑応答（分）',
-    lblTalkWarn: '講演の予鈴（終了何分前）', lblQaWarn: '質疑の予鈴（終了何分前）',
+    lblTalkWarn: '予鈴1（講演終了の何分前）', lblTalkWarn2: '予鈴2（講演終了の何分前）',
     titlePh: '例：山田さんの講演', msgPh: 'speaker に伝える一言',
     applySet: 'この設定を反映（リセット）',
     bellH: 'ベル確認', bellWarn: '1鈴（予鈴）', bellTalkEnd: '2鈴（講演終了）', bellFinal: '3鈴（全体終了）',
@@ -237,8 +247,8 @@ const I18N = {
     connPrefix: '📱 iPad で開く', connTapHint: '（タップで QR）',
     msgShowing: '表示中', msgNone: '',
     sumTalk: '講演', sumQa: '質疑', sumTotal: '全体', minU: '分',
-    sumTalkWarn: '講演予鈴', sumQaWarn: '質疑予鈴',
-    bellSoundH: 'ベル音（選ぶと試聴）',
+    sumTalkWarn: '予鈴1', sumTalkWarn2: '予鈴2',
+    bellSoundH: 'ベル音（選ぶと試聴）', volLabel: '音量', pitchLabel: '高さ',
     scopeLabel: 'iPad の大きい表示', scopePhase: '現フェーズ', scopeTotal: '全体',
     setHint: '−／＋ または プリセットで時間を設定',
     setHintRunning: '⏸ 進行中は時間設定できません（一時停止すると変更可）',
@@ -254,9 +264,10 @@ const I18N = {
     msgH: 'Show message on iPad', send: 'Send', clear: 'Clear',
     moreH: 'More (settings, connection, keyboard)',
     presetH: 'Presets (talk + Q&A)',
+    presetEditH: 'Edit presets (✕ to delete)', savePreset: '＋ Save current as preset',
     setH: 'Set individually',
     lblTitle: 'Talk title', lblTalk: 'Talk (min)', lblQa: 'Q&A (min)',
-    lblTalkWarn: 'Talk warning (min before end)', lblQaWarn: 'Q&A warning (min before end)',
+    lblTalkWarn: 'Warning 1 (min before talk end)', lblTalkWarn2: 'Warning 2 (min before talk end)',
     titlePh: 'e.g. Dr. Yamada’s talk', msgPh: 'a note to the speaker',
     applySet: 'Apply settings (reset)',
     bellH: 'Bell check', bellWarn: '1 bell (warning)', bellTalkEnd: '2 bells (talk end)', bellFinal: '3 bells (end)',
@@ -267,8 +278,8 @@ const I18N = {
     connPrefix: '📱 Open on iPad', connTapHint: '(tap for QR)',
     msgShowing: 'Showing', msgNone: '',
     sumTalk: 'Talk', sumQa: 'Q&A', sumTotal: 'Total', minU: ' min',
-    sumTalkWarn: 'Talk warn', sumQaWarn: 'Q&A warn',
-    bellSoundH: 'Bell sound (tap to preview)',
+    sumTalkWarn: 'Warn 1', sumTalkWarn2: 'Warn 2',
+    bellSoundH: 'Bell sound (tap to preview)', volLabel: 'Volume', pitchLabel: 'Pitch',
     scopeLabel: 'iPad big display', scopePhase: 'Current part', scopeTotal: 'Total',
     setHint: '−/＋ or presets to set the time',
     setHintRunning: '⏸ Pause to change durations (disabled while running)',
@@ -278,7 +289,6 @@ const I18N = {
     quick: ['5 minutes left', '1 minute left', 'Please wrap up', 'Time is up'],
   },
 };
-const PRESETS = [ [10,5], [15,5], [25,5], [30,10], [45,15] ]; // [講演分, 質疑分]
 
 let lang = 'ja';
 let lastState = null;
@@ -286,6 +296,7 @@ let qrDrawnFor = '';      // 同じ URL で再描画しない
 let macBell = false;      // F: Mac でもベルを鳴らす
 let lastBellId = null;    // null=基準未取得（初回は鳴らさない）
 let settingsSynced = false; // 初回の状態で設定欄を実値に同期したか
+let lastPresetsSig = null;  // プリセット配列が変わった時だけ再描画するための署名
 
 function t() { return I18N[lang]; }
 
@@ -333,32 +344,52 @@ function buildBellSounds() {
 }
 
 // プリセット（言語非依存・一度だけ生成）。押したら入力欄も埋めてサマリーを更新。
+// プリセット（サーバ状態 lastState.presets から生成）。各要素 [講演, 質疑, 講演予鈴, 質疑予鈴]。
+function curPresets() { return (lastState && Array.isArray(lastState.presets)) ? lastState.presets : []; }
+
 function buildPresets() {
   const wrap = document.getElementById('presets');
+  if (!wrap) return;
   wrap.innerHTML = '';
-  PRESETS.forEach(([tk, qa]) => {
+  curPresets().forEach(([tk, qa, tw, tw2]) => {
     const b = document.createElement('button');
     b.textContent = qa > 0 ? `${tk}+${qa}` : `${tk}`;
     b.onclick = () => {
       document.getElementById('setTalk').value = tk;
       document.getElementById('setQa').value = qa;
-      cmd({ action: 'set', talkMin: tk, qaMin: qa,
-        talkWarnMin: document.getElementById('setTalkWarn').value,
-        qaWarnMin: document.getElementById('setQaWarn').value });
+      if (tw != null) document.getElementById('setTalkWarn').value = tw;
+      if (tw2 != null) document.getElementById('setTalkWarn2').value = tw2;
+      cmd({ action: 'set', talkMin: tk, qaMin: qa, talkWarnMin: tw, talkWarn2Min: tw2 });
     };
     wrap.appendChild(b);
   });
 }
 
+// プリセット編集：チップ一覧（✕で削除）＋「現在の設定を保存」
+function renderPresetList() {
+  const wrap = document.getElementById('presetList');
+  if (!wrap) return;
+  const d = t();
+  const presets = curPresets();
+  wrap.innerHTML = '';
+  presets.forEach(([tk, qa, tw, tw2], i) => {
+    const chip = document.createElement('button');
+    chip.className = 'muted presetchip';
+    chip.textContent = `${tk}+${qa}（${d.sumTalkWarn}${tw}/${d.sumTalkWarn2}${tw2}） ✕`;
+    chip.onclick = () => { const next = presets.slice(); next.splice(i, 1); cmd({ action: 'setPresets', presets: next }); };
+    wrap.appendChild(chip);
+  });
+}
+
 // 設定サマリー：講演／質疑／全体を最上部に常時表示。−／＋で編集可・現在値(サーバ)を反映。
-function renderSummary(tkMin, qaMin, twMin, qwMin) {
+function renderSummary(tkMin, qaMin, twMin, tw2Min) {
   const d = t();
   const m = (n) => (Math.round(n * 10) / 10) + d.minU;
   document.getElementById('valTalk').textContent = m(tkMin);
   document.getElementById('valQa').textContent = m(qaMin);
   document.getElementById('valTotal').textContent = m(tkMin + qaMin);
   document.getElementById('valTalkWarn').textContent = m(twMin);
-  document.getElementById('valQaWarn').textContent = m(qwMin);
+  document.getElementById('valTalkWarn2').textContent = m(tw2Min);
 }
 
 // B/C: −／＋ で講演・質疑・全体を編集（全体± は質疑固定で講演に反映＝C）。set で確定。
@@ -370,20 +401,19 @@ document.querySelectorAll('.setSummary .step').forEach((btn) => {
     let talk = Math.round(lastState.talkSec / 60);
     let qa = Math.round(lastState.qaSec / 60);
     let talkWarn = Math.round(lastState.talkWarnSec / 60);
-    let qaWarn = Math.round(lastState.qaWarnSec / 60);
+    let talkWarn2 = Math.round(lastState.talkWarn2Sec / 60);
     const dir = Number(btn.dataset.dir);
     switch (btn.dataset.dim) {
       case 'qa': qa = Math.max(0, qa + dir); break;
       case 'talkWarn': talkWarn = Math.max(0, talkWarn + dir); break;
-      case 'qaWarn': qaWarn = Math.max(0, qaWarn + dir); break;
+      case 'talkWarn2': talkWarn2 = Math.max(0, talkWarn2 + dir); break;
       default: talk = Math.max(1, talk + dir);     // 'talk' と 'total' はどちらも講演を増減
     }
     document.getElementById('setTalk').value = talk;
     document.getElementById('setQa').value = qa;
     document.getElementById('setTalkWarn').value = talkWarn;
-    document.getElementById('setQaWarn').value = qaWarn;
-    cmd({ action: 'set', talkMin: talk, qaMin: qa,
-      talkWarnMin: talkWarn, qaWarnMin: qaWarn });
+    document.getElementById('setTalkWarn2').value = talkWarn2;
+    cmd({ action: 'set', talkMin: talk, qaMin: qa, talkWarnMin: talkWarn, talkWarn2Min: talkWarn2 });
   };
 });
 
@@ -417,6 +447,30 @@ document.getElementById('btnMacBell').onclick = () => {
 // どの操作でも一度オーディオを解錠（自動再生制限の回避）
 document.addEventListener('pointerdown', () => { if (macBell && window.Bell) Bell.unlock(); });
 
+// 音量スライダー：ドラッグ中はローカル即反映、離したらサーバ保存＋その音量で試聴
+const volSlider = document.getElementById('volSlider');
+volSlider.addEventListener('input', () => { if (window.Bell) Bell.setVolume(Number(volSlider.value)); });
+volSlider.addEventListener('change', () => {
+  cmd({ action: 'setVolume', value: Number(volSlider.value) });
+  if (window.Bell) { Bell.unlock(); Bell.ring('warn', (lastState && lastState.bellSound) || Bell.DEFAULT); }
+});
+// 音の高さ（ピッチ）：ドラッグ中ローカル反映、離したら保存＋試聴
+const pitchSlider = document.getElementById('pitchSlider');
+pitchSlider.addEventListener('input', () => { if (window.Bell) Bell.setPitch(Number(pitchSlider.value)); });
+pitchSlider.addEventListener('change', () => {
+  cmd({ action: 'setPitch', value: Number(pitchSlider.value) });
+  if (window.Bell) { Bell.unlock(); Bell.ring('warn', (lastState && lastState.bellSound) || Bell.DEFAULT); }
+});
+
+// 現在の設定（講演/質疑/予鈴）をプリセットに保存
+document.getElementById('btnSavePreset').onclick = () => {
+  if (!lastState) return;
+  const r = (s) => Math.round((s || 0) / 60);
+  const next = curPresets().slice();
+  next.push([r(lastState.talkSec), r(lastState.qaSec), r(lastState.talkWarnSec), r(lastState.talkWarn2Sec)]);
+  cmd({ action: 'setPresets', presets: next });
+};
+
 // iPad 音の ON/OFF（サーバ状態 ipadBell を切替）
 document.getElementById('btnIpadBell').onclick = () => {
   const on = lastState ? (lastState.ipadBell !== false) : true;
@@ -431,7 +485,12 @@ document.getElementById('btnPlayPause').onclick = () => {
   const running = lastState && lastState.phase === 'running';
   cmd({ action: running ? 'pause' : 'start' });
 };
-document.getElementById('btnReset').onclick = () => cmd({ action: 'reset' });
+// リセット：進行中は不可（一時停止/待機でのみ）。合間＝次の講演準備で使う想定。
+function doReset() {
+  if (lastState && lastState.phase === 'running') return;
+  cmd({ action: 'reset' });
+}
+document.getElementById('btnReset').onclick = doReset;
 document.getElementById('btnToQa').onclick = () => cmd({ action: 'segment', to: 'qa' });
 
 document.querySelectorAll('[data-adj]').forEach(b =>
@@ -442,7 +501,7 @@ document.getElementById('btnSet').onclick = () => cmd({
   talkMin: document.getElementById('setTalk').value,
   qaMin: document.getElementById('setQa').value,
   talkWarnMin: document.getElementById('setTalkWarn').value,
-  qaWarnMin: document.getElementById('setQaWarn').value,
+  talkWarn2Min: document.getElementById('setTalkWarn2').value,
 });
 
 document.getElementById('btnMsgSend').onclick = () =>
@@ -467,7 +526,7 @@ document.addEventListener('keydown', (e) => {
   let handled = true;
   switch (e.code) {
     case 'Space': cmd({ action: ph === 'running' ? 'pause' : 'start' }); break;
-    case 'KeyR': cmd({ action: 'reset' }); break;
+    case 'KeyR': doReset(); break;
     case 'KeyQ': cmd({ action: 'segment', to: 'qa' }); break;
     case 'KeyT': cmd({ action: 'segment', to: 'talk' }); break;
     case 'ArrowRight': cmd({ action: 'adjust', deltaSec: 10 }); break;
@@ -515,7 +574,7 @@ function renderState(st) {
   const c = document.getElementById('clock');
   c.textContent = fmt(bigSec);
   c.classList.remove('warn', 'over');
-  const warnSec = st.segment === 'qa' ? st.qaWarnSec : st.talkWarnSec;
+  const warnSec = st.segment === 'talk' ? Math.max(st.talkWarnSec || 0, st.talkWarn2Sec || 0) : 0; // 予鈴は講演のみ
   if (scopeTotal) { if (totalRem <= 0) c.classList.add('over'); }
   else if (st.remainingSec <= 0) c.classList.add('over');
   else if (warnSec > 0 && st.remainingSec <= warnSec) c.classList.add('warn');
@@ -542,7 +601,7 @@ function renderState(st) {
 
   // 最上部のサマリー（講演／質疑／全体）を現在の設定で更新
   if (Number.isFinite(st.talkSec) && Number.isFinite(st.qaSec))
-    renderSummary(st.talkSec / 60, st.qaSec / 60, (st.talkWarnSec || 0) / 60, (st.qaWarnSec || 0) / 60);
+    renderSummary(st.talkSec / 60, st.qaSec / 60, (st.talkWarnSec || 0) / 60, (st.talkWarn2Sec || 0) / 60);
 
   // 進行中は時間変更 UI（−／＋・プリセット・個別設定）を非表示（CSS body.running）。
   const running = st.phase === 'running';
@@ -551,6 +610,7 @@ function renderState(st) {
   pp.textContent = running ? ('⏸ ' + d.pause) : ('▶ ' + d.start);
   pp.classList.toggle('primary', !running);
   pp.classList.toggle('muted', running);
+  document.getElementById('btnReset').disabled = running; // 進行中はリセット不可
   document.body.classList.toggle('running', running);
   document.body.classList.toggle('idle', st.phase === 'idle'); // 待機中は ±調整を隠す
   document.getElementById('setHint').textContent = running ? d.setHintRunning : d.setHint;
@@ -562,6 +622,16 @@ function renderState(st) {
   const ipadOn = st.ipadBell !== false;
   ib.textContent = ipadOn ? d.ipadBellOn : d.ipadBellOff;
   ib.classList.toggle('on', ipadOn);
+  // 音量・高さ：Bell に反映＋スライダー表示（ドラッグ中は上書きしない）
+  if (window.Bell && typeof st.volume === 'number') Bell.setVolume(st.volume);
+  if (window.Bell && typeof st.pitch === 'number') Bell.setPitch(st.pitch);
+  const vs = document.getElementById('volSlider');
+  if (vs && document.activeElement !== vs && typeof st.volume === 'number') vs.value = st.volume;
+  const ps = document.getElementById('pitchSlider');
+  if (ps && document.activeElement !== ps && typeof st.pitch === 'number') ps.value = st.pitch;
+  // プリセットが変わった時だけボタンと編集リストを作り直す
+  const psig = JSON.stringify(st.presets || []);
+  if (psig !== lastPresetsSig) { lastPresetsSig = psig; buildPresets(); renderPresetList(); }
 }
 
 function connect() {
@@ -576,7 +646,7 @@ function connect() {
         if (Number.isFinite(st.talkSec)) document.getElementById('setTalk').value = st.talkSec / 60;
         if (Number.isFinite(st.qaSec)) document.getElementById('setQa').value = st.qaSec / 60;
         if (Number.isFinite(st.talkWarnSec)) document.getElementById('setTalkWarn').value = st.talkWarnSec / 60;
-        if (Number.isFinite(st.qaWarnSec)) document.getElementById('setQaWarn').value = st.qaWarnSec / 60;
+        if (Number.isFinite(st.talkWarn2Sec)) document.getElementById('setTalkWarn2').value = st.talkWarn2Sec / 60;
       }
       // F: Mac でのベル（初回は基準合わせのみ）
       if (st.bellEvent) {
@@ -594,7 +664,6 @@ function connect() {
   es.onerror = () => { es.close(); setTimeout(connect, 1500); };
 }
 
-buildPresets();
 applyLang();
 connect();
 </script>

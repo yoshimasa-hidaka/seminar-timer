@@ -18,8 +18,8 @@ const state = {
   title: '',
   talkSec: 20 * 60,     // 講演の持ち時間
   qaSec: 10 * 60,       // 質疑応答の持ち時間（0 なら質疑なし）
-  talkWarnSec: 5 * 60,  // 講演の予鈴（講演終了の何秒前に鳴らすか）
-  qaWarnSec: 2 * 60,    // 質疑応答の予鈴（質疑終了の何秒前に鳴らすか）
+  talkWarnSec: 5 * 60,  // 予鈴1（講演終了の何秒前・予鈴は講演のみ）
+  talkWarn2Sec: 1 * 60, // 予鈴2（講演終了の何秒前・2回目の警告）
   segment: 'talk',      // 'talk'（講演）| 'qa'（質疑応答）
   remainingSec: 20 * 60,// 現フェーズの残り。負になると超過（overtime）
   message: '',          // 司会から speaker へのメッセージ
@@ -27,12 +27,38 @@ const state = {
   clockScope: 'phase',  // iPad の大きい時計 'phase'（現フェーズ）| 'total'（全体=質疑込み）
   bellSound: 'chime',   // ベル音色 'chime' | 'bell' | 'beep'（両画面で同期）
   ipadBell: true,       // iPad でベルを鳴らすか（操作画面から切替）
+  volume: 0.9,          // ベル音量 0–1
+  pitch: 1.0,           // ベル音の高さ（周波数倍率）
+  // プリセット [講演, 質疑, 予鈴1, 予鈴2]（分）
+  presets: [[10, 5, 2, 1], [15, 5, 3, 1], [25, 5, 5, 1], [30, 10, 5, 1], [45, 15, 5, 1]],
   bellEvent: { id: 0, type: null }, // id をインクリメントして1回だけ鳴らす
   lanIp: '',            // 起動時に確定（コントロールが iPad 用 URL/QR を作るため）
   port: 0,
 };
 
 const clients = new Set(); // SSE 接続中の response 群
+
+// ---- 設定の永続化（config.json に保存し再起動で復元。走行中の時計は保存しない）----
+const CONFIG_FILE = path.join(__dirname, 'config.json');
+const CONFIG_KEYS = ['talkSec', 'qaSec', 'talkWarnSec', 'talkWarn2Sec', 'bellSound', 'ipadBell', 'volume', 'pitch', 'presets', 'lang', 'clockScope'];
+const CONFIG_ACTIONS = new Set(['set', 'setBellSound', 'setIpadBell', 'setVolume', 'setPitch', 'setPresets', 'setLang', 'setClockScope']);
+function loadConfig() {
+  try {
+    const data = JSON.parse(fs.readFileSync(CONFIG_FILE, 'utf8'));
+    for (const k of CONFIG_KEYS) if (k in data) state[k] = data[k];
+  } catch (_) { /* 無ければ既定値のまま */ }
+  state.remainingSec = state.talkSec; // 復元した持ち時間で待機状態に
+}
+let saveTimer = null;
+function saveConfig() {
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(() => {
+    const out = {};
+    for (const k of CONFIG_KEYS) out[k] = state[k];
+    fs.writeFile(CONFIG_FILE, JSON.stringify(out, null, 2), () => {});
+  }, 400); // デバウンス
+}
+loadConfig();
 
 function snapshot() {
   return JSON.stringify({ ...state, serverTime: Date.now() });
@@ -55,10 +81,11 @@ setInterval(() => {
     const before = state.remainingSec;
     state.remainingSec -= 1;
     const after = state.remainingSec;
-    // 予鈴：現フェーズの予鈴秒数を上から跨いだ瞬間（>0 のときのみ）— 講演/質疑で別設定
-    const warnSec = state.segment === 'talk' ? state.talkWarnSec : state.qaWarnSec;
-    if (warnSec > 0 && before > warnSec && after <= warnSec && after > 0) {
-      ringBell('warn');
+    // 予鈴（講演フェーズのみ）：予鈴1・予鈴2 をそれぞれ上から跨いだ瞬間に1鈴
+    if (state.segment === 'talk') {
+      for (const w of [state.talkWarnSec, state.talkWarn2Sec]) {
+        if (w > 0 && before > w && after <= w && after > 0) ringBell('warn');
+      }
     }
     // フェーズ終了：0 を上から跨いだ瞬間
     if (before > 0 && after <= 0) {
@@ -94,11 +121,11 @@ function applyCommand(cmd) {
       const talkMin = Number(cmd.talkMin);
       const qaMin = Number(cmd.qaMin);
       const talkWarnMin = Number(cmd.talkWarnMin);
-      const qaWarnMin = Number(cmd.qaWarnMin);
+      const talkWarn2Min = Number(cmd.talkWarn2Min);
       if (Number.isFinite(talkMin) && talkMin > 0) state.talkSec = Math.round(talkMin * 60);
       if (Number.isFinite(qaMin) && qaMin >= 0) state.qaSec = Math.round(qaMin * 60);
       if (Number.isFinite(talkWarnMin) && talkWarnMin >= 0) state.talkWarnSec = Math.round(talkWarnMin * 60);
-      if (Number.isFinite(qaWarnMin) && qaWarnMin >= 0) state.qaWarnSec = Math.round(qaWarnMin * 60);
+      if (Number.isFinite(talkWarn2Min) && talkWarn2Min >= 0) state.talkWarn2Sec = Math.round(talkWarn2Min * 60);
       if (typeof cmd.title === 'string') state.title = cmd.title.slice(0, 120);
       state.segment = 'talk';
       state.remainingSec = state.talkSec;
@@ -135,12 +162,37 @@ function applyCommand(cmd) {
     case 'setIpadBell':
       state.ipadBell = !!cmd.on;
       break;
+    case 'setVolume': {
+      const v = Number(cmd.value);
+      if (Number.isFinite(v)) state.volume = Math.max(0, Math.min(1, v));
+      break;
+    }
+    case 'setPitch': {
+      const p = Number(cmd.value);
+      if (Number.isFinite(p)) state.pitch = Math.max(0.25, Math.min(4, p));
+      break;
+    }
+    case 'setPresets':
+      if (Array.isArray(cmd.presets)) {
+        state.presets = cmd.presets
+          .filter((p) => Array.isArray(p) && p.length >= 2)
+          .map((p) => [
+            Math.max(1, Math.round(Number(p[0]) || 0)),                       // 講演
+            Math.max(0, Math.round(Number(p[1]) || 0)),                       // 質疑
+            Math.max(0, Math.round(Number(p[2] != null ? p[2] : 5) || 0)),    // 予鈴1
+            Math.max(0, Math.round(Number(p[3] != null ? p[3] : 1) || 0)),    // 予鈴2
+          ])
+          .filter((p) => Number.isFinite(p[0]))
+          .slice(0, 12);
+      }
+      break;
     case 'testBell':
       ringBell(['warn', 'talkEnd', 'final'].includes(cmd.type) ? cmd.type : 'warn');
       break;
     default:
       return false;
   }
+  if (CONFIG_ACTIONS.has(cmd.action)) saveConfig(); // 設定変更は永続化
   broadcast();
   return true;
 }

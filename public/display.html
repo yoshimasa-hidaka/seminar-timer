@@ -124,6 +124,8 @@ function unlockAudio() { if (window.Bell) { Bell.unlock(); audioEverOn = true; }
 
 function render(st) {
   lastSt = st;
+  if (window.Bell && typeof st.volume === 'number') Bell.setVolume(st.volume);
+  if (window.Bell && typeof st.pitch === 'number') Bell.setPitch(st.pitch);
   // A: 大きい時計のスコープ（現フェーズ / 全体=質疑込み）
   const totalRem = st.segment === 'qa' ? st.remainingSec : st.remainingSec + st.qaSec;
   const scopeTotal = st.clockScope === 'total';
@@ -134,7 +136,7 @@ function render(st) {
   clock.innerHTML = (over ? '<span class="sign">+</span>' : '') + body;
 
   // 色分け：緑→黄（予鈴以下）→赤（超過）。phase スコープは現フェーズ予鈴で、total スコープは超過のみ
-  const warnSec = st.segment === 'qa' ? st.qaWarnSec : st.talkWarnSec;
+  const warnSec = st.segment === 'talk' ? Math.max(st.talkWarnSec || 0, st.talkWarn2Sec || 0) : 0; // 予鈴は講演のみ
   document.body.classList.remove('warn', 'over');
   if (scopeTotal) {
     if (totalRem <= 0) document.body.classList.add('over');
