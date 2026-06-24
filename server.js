@@ -19,7 +19,7 @@ const state = {
   talkSec: 20 * 60,     // 講演の持ち時間
   qaSec: 10 * 60,       // 質疑応答の持ち時間（0 なら質疑なし）
   talkWarnSec: 5 * 60,  // 予鈴1（講演終了の何秒前・予鈴は講演のみ）
-  talkWarn2Sec: 1 * 60, // 予鈴2（講演終了の何秒前・2回目の警告）
+  talkWarn2Sec: 0,      // 予鈴2（講演終了の何秒前・2回目の警告・既定オフ）
   segment: 'talk',      // 'talk'（講演）| 'qa'（質疑応答）
   remainingSec: 20 * 60,// 現フェーズの残り。負になると超過（overtime）
   message: '',          // 司会から speaker へのメッセージ
@@ -29,8 +29,8 @@ const state = {
   ipadBell: true,       // iPad でベルを鳴らすか（操作画面から切替）
   volume: 0.9,          // ベル音量 0–1
   pitch: 1.0,           // ベル音の高さ（周波数倍率）
-  // プリセット [講演, 質疑, 予鈴1, 予鈴2]（分）
-  presets: [[10, 5, 2, 1], [15, 5, 3, 1], [25, 5, 5, 1], [30, 10, 5, 1], [45, 15, 5, 1]],
+  // プリセット [講演, 質疑, 予鈴1, 予鈴2]（分・予鈴2は既定0＝オフ）
+  presets: [[10, 5, 3, 0], [15, 5, 3, 0], [25, 5, 5, 0], [30, 10, 5, 0], [45, 15, 5, 0]],
   bellEvent: { id: 0, type: null }, // id をインクリメントして1回だけ鳴らす
   lanIp: '',            // 起動時に確定（コントロールが iPad 用 URL/QR を作るため）
   port: 0,
@@ -180,7 +180,7 @@ function applyCommand(cmd) {
             Math.max(1, Math.round(Number(p[0]) || 0)),                       // 講演
             Math.max(0, Math.round(Number(p[1]) || 0)),                       // 質疑
             Math.max(0, Math.round(Number(p[2] != null ? p[2] : 5) || 0)),    // 予鈴1
-            Math.max(0, Math.round(Number(p[3] != null ? p[3] : 1) || 0)),    // 予鈴2
+            Math.max(0, Math.round(Number(p[3] != null ? p[3] : 0) || 0)),    // 予鈴2（既定0）
           ])
           .filter((p) => Number.isFinite(p[0]))
           .slice(0, 12);

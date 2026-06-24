@@ -61,7 +61,10 @@
   .grid4 { display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 8px; }
   .quick button, .preset button { background: #353a44; font-size: 15px; padding: 12px 8px; }
   #presets { grid-template-columns: repeat(5, 1fr); }
-  .presetchip { flex: none; font-size: 13px; padding: 8px 12px; }
+  .presetrow { display: flex; gap: 6px; margin-bottom: 6px; }
+  .presetchip { flex: 1; font-size: 14px; padding: 9px 12px; text-align: left; }
+  .presetbtn { flex: none; padding: 9px 14px; font-size: 13px; }
+  .presetdel { flex: none; padding: 9px 14px; font-size: 14px; }
   .muted { background: #2e3238; }
   details { margin-top: 18px; border-top: 1px solid #2e3238; padding-top: 6px; }
   summary { cursor: pointer; color: #9aa; font-size: 15px; font-weight: 600; padding: 8px 0; }
@@ -198,13 +201,12 @@
       <div class="field"><label data-i18n="lblTalk"></label><input id="setTalk" type="number" inputmode="decimal" value="20"></div>
       <div class="field"><label data-i18n="lblQa"></label><input id="setQa" type="number" inputmode="decimal" value="10"></div>
       <div class="field"><label data-i18n="lblTalkWarn"></label><input id="setTalkWarn" type="number" inputmode="decimal" value="5"></div>
-      <div class="field"><label data-i18n="lblTalkWarn2"></label><input id="setTalkWarn2" type="number" inputmode="decimal" value="1"></div>
-      <button class="primary" id="btnSet" data-i18n="applySet"></button>
+      <div class="field"><label data-i18n="lblTalkWarn2"></label><input id="setTalkWarn2" type="number" inputmode="decimal" value="0"></div>
     </div>
     <div id="setRunNote" class="setSummaryHint" data-i18n="setHintRunning" style="display:none"></div>
 
     <h2 data-i18n="presetEditH"></h2>
-    <div class="row" id="presetList" style="margin-bottom:8px"></div>
+    <div id="presetList" style="margin-bottom:8px"></div>
     <button class="muted" id="btnSavePreset" data-i18n="savePreset"></button>
 
     <h2 data-i18n="bellSoundH"></h2>
@@ -233,7 +235,8 @@ const I18N = {
     msgH: 'メッセージを iPad に表示', send: '送信', clear: '消す',
     moreH: '詳細設定（個別設定・接続・キーボード）',
     presetH: 'プリセット（講演＋質疑）',
-    presetEditH: 'プリセット編集（✕で削除）', savePreset: '＋ 今の設定をプリセットに保存',
+    presetEditH: 'プリセット編集（タップで読込→調整→「更新」で上書き／✕で削除）',
+    updateOne: '更新', loadHint: 'タップで現在の設定に読み込む', savePreset: '＋ 今の設定で新規追加',
     setH: '個別に設定',
     lblTitle: '講演タイトル', lblTalk: '講演（分）', lblQa: '質疑応答（分）',
     lblTalkWarn: '予鈴1（講演終了の何分前）', lblTalkWarn2: '予鈴2（講演終了の何分前）',
@@ -247,7 +250,7 @@ const I18N = {
     connPrefix: '📱 iPad で開く', connTapHint: '（タップで QR）',
     msgShowing: '表示中', msgNone: '',
     sumTalk: '講演', sumQa: '質疑', sumTotal: '全体', minU: '分',
-    sumTalkWarn: '予鈴1', sumTalkWarn2: '予鈴2',
+    sumTalkWarn: '予鈴1', sumTalkWarn2: '予鈴2', warnShort: '予鈴',
     bellSoundH: 'ベル音（選ぶと試聴）', volLabel: '音量', pitchLabel: '高さ',
     scopeLabel: 'iPad の大きい表示', scopePhase: '現フェーズ', scopeTotal: '全体',
     setHint: '−／＋ または プリセットで時間を設定',
@@ -264,7 +267,8 @@ const I18N = {
     msgH: 'Show message on iPad', send: 'Send', clear: 'Clear',
     moreH: 'More (settings, connection, keyboard)',
     presetH: 'Presets (talk + Q&A)',
-    presetEditH: 'Edit presets (✕ to delete)', savePreset: '＋ Save current as preset',
+    presetEditH: 'Edit presets (tap to load → adjust → "Update" / ✕ delete)',
+    updateOne: 'Update', loadHint: 'Tap to load into current settings', savePreset: '＋ Add current as new',
     setH: 'Set individually',
     lblTitle: 'Talk title', lblTalk: 'Talk (min)', lblQa: 'Q&A (min)',
     lblTalkWarn: 'Warning 1 (min before talk end)', lblTalkWarn2: 'Warning 2 (min before talk end)',
@@ -278,7 +282,7 @@ const I18N = {
     connPrefix: '📱 Open on iPad', connTapHint: '(tap for QR)',
     msgShowing: 'Showing', msgNone: '',
     sumTalk: 'Talk', sumQa: 'Q&A', sumTotal: 'Total', minU: ' min',
-    sumTalkWarn: 'Warn 1', sumTalkWarn2: 'Warn 2',
+    sumTalkWarn: 'Warn 1', sumTalkWarn2: 'Warn 2', warnShort: 'warn',
     bellSoundH: 'Bell sound (tap to preview)', volLabel: 'Volume', pitchLabel: 'Pitch',
     scopeLabel: 'iPad big display', scopePhase: 'Current part', scopeTotal: 'Total',
     setHint: '−/＋ or presets to set the time',
@@ -295,7 +299,6 @@ let lastState = null;
 let qrDrawnFor = '';      // 同じ URL で再描画しない
 let macBell = false;      // F: Mac でもベルを鳴らす
 let lastBellId = null;    // null=基準未取得（初回は鳴らさない）
-let settingsSynced = false; // 初回の状態で設定欄を実値に同期したか
 let lastPresetsSig = null;  // プリセット配列が変わった時だけ再描画するための署名
 
 function t() { return I18N[lang]; }
@@ -365,7 +368,16 @@ function buildPresets() {
   });
 }
 
-// プリセット編集：チップ一覧（✕で削除）＋「現在の設定を保存」
+// 既存プリセットを現在の設定に読み込む（編集の起点）
+function loadPreset(tk, qa, tw, tw2) {
+  document.getElementById('setTalk').value = tk;
+  document.getElementById('setQa').value = qa;
+  document.getElementById('setTalkWarn').value = tw;
+  document.getElementById('setTalkWarn2').value = tw2;
+  cmd({ action: 'set', talkMin: tk, qaMin: qa, talkWarnMin: tw, talkWarn2Min: tw2 });
+}
+
+// プリセット編集：各行＝[チップ(タップで読込)] [更新(現在値で上書き)] [✕(削除)]
 function renderPresetList() {
   const wrap = document.getElementById('presetList');
   if (!wrap) return;
@@ -373,11 +385,38 @@ function renderPresetList() {
   const presets = curPresets();
   wrap.innerHTML = '';
   presets.forEach(([tk, qa, tw, tw2], i) => {
+    const row = document.createElement('div');
+    row.className = 'presetrow';
     const chip = document.createElement('button');
     chip.className = 'muted presetchip';
-    chip.textContent = `${tk}+${qa}（${d.sumTalkWarn}${tw}/${d.sumTalkWarn2}${tw2}） ✕`;
-    chip.onclick = () => { const next = presets.slice(); next.splice(i, 1); cmd({ action: 'setPresets', presets: next }); };
-    wrap.appendChild(chip);
+    chip.textContent = `${tk}+${qa}（${d.warnShort} ${tw}/${tw2}）`;
+    chip.title = d.loadHint;
+    chip.onclick = () => loadPreset(tk, qa, tw, tw2);          // 読込（現在の設定に反映）
+    const upd = document.createElement('button');
+    upd.className = 'muted presetbtn';
+    upd.textContent = d.updateOne;
+    upd.onclick = () => {                                       // 現在の設定でこのプリセットを上書き
+      if (!lastState) return;
+      const cur = currentPreset();
+      const msg = lang === 'en'
+        ? `Overwrite "${tk}+${qa}" with current (${cur[0]}+${cur[1]}, warn ${cur[2]}/${cur[3]})?`
+        : `「${tk}+${qa}」を現在の設定（${cur[0]}+${cur[1]}・予鈴${cur[2]}/${cur[3]}）で上書きしますか？`;
+      if (!window.confirm(msg)) return;
+      const next = presets.slice(); next[i] = cur;
+      cmd({ action: 'setPresets', presets: next });
+    };
+    const del = document.createElement('button');
+    del.className = 'muted presetdel';
+    del.textContent = '✕';
+    del.onclick = () => {
+      const label = `${tk}+${qa}`;
+      const msg = lang === 'en' ? `Delete preset "${label}"?` : `プリセット「${label}」を削除しますか？`;
+      if (!window.confirm(msg)) return;
+      const next = presets.slice(); next.splice(i, 1);
+      cmd({ action: 'setPresets', presets: next });
+    };
+    row.appendChild(chip); row.appendChild(upd); row.appendChild(del);
+    wrap.appendChild(row);
   });
 }
 
@@ -463,11 +502,15 @@ pitchSlider.addEventListener('change', () => {
 });
 
 // 現在の設定（講演/質疑/予鈴）をプリセットに保存
+function currentPreset() {
+  const r = (s) => Math.round((s || 0) / 60);
+  return [r(lastState.talkSec), r(lastState.qaSec), r(lastState.talkWarnSec), r(lastState.talkWarn2Sec)];
+}
+// ＋新規追加：現在の設定を末尾に
 document.getElementById('btnSavePreset').onclick = () => {
   if (!lastState) return;
-  const r = (s) => Math.round((s || 0) / 60);
   const next = curPresets().slice();
-  next.push([r(lastState.talkSec), r(lastState.qaSec), r(lastState.talkWarnSec), r(lastState.talkWarn2Sec)]);
+  next.push(currentPreset());
   cmd({ action: 'setPresets', presets: next });
 };
 
@@ -496,13 +539,18 @@ document.getElementById('btnToQa').onclick = () => cmd({ action: 'segment', to: 
 document.querySelectorAll('[data-adj]').forEach(b =>
   b.onclick = () => cmd({ action: 'adjust', deltaSec: Number(b.dataset.adj) }));
 
-document.getElementById('btnSet').onclick = () => cmd({
-  action: 'set',
-  talkMin: document.getElementById('setTalk').value,
-  qaMin: document.getElementById('setQa').value,
-  talkWarnMin: document.getElementById('setTalkWarn').value,
-  talkWarn2Min: document.getElementById('setTalkWarn2').value,
-});
+// 個別入力欄は変更したら即反映（「この設定を反映」ボタンは廃止）
+function applyManualFields() {
+  cmd({
+    action: 'set',
+    talkMin: document.getElementById('setTalk').value,
+    qaMin: document.getElementById('setQa').value,
+    talkWarnMin: document.getElementById('setTalkWarn').value,
+    talkWarn2Min: document.getElementById('setTalkWarn2').value,
+  });
+}
+['setTalk', 'setQa', 'setTalkWarn', 'setTalkWarn2'].forEach((id) =>
+  document.getElementById(id).addEventListener('change', applyManualFields));
 
 document.getElementById('btnMsgSend').onclick = () =>
   cmd({ action: 'message', text: document.getElementById('msg').value });
@@ -629,6 +677,15 @@ function renderState(st) {
   if (vs && document.activeElement !== vs && typeof st.volume === 'number') vs.value = st.volume;
   const ps = document.getElementById('pitchSlider');
   if (ps && document.activeElement !== ps && typeof st.pitch === 'number') ps.value = st.pitch;
+  // 個別入力欄を実値に同期（編集中＝フォーカス中は上書きしない）。即反映なので apply 不要。
+  const syncField = (id, sec) => {
+    const el = document.getElementById(id);
+    if (el && document.activeElement !== el && Number.isFinite(sec)) el.value = sec / 60;
+  };
+  syncField('setTalk', st.talkSec);
+  syncField('setQa', st.qaSec);
+  syncField('setTalkWarn', st.talkWarnSec);
+  syncField('setTalkWarn2', st.talkWarn2Sec);
   // プリセットが変わった時だけボタンと編集リストを作り直す
   const psig = JSON.stringify(st.presets || []);
   if (psig !== lastPresetsSig) { lastPresetsSig = psig; buildPresets(); renderPresetList(); }
@@ -640,14 +697,6 @@ function connect() {
     try {
       const st = JSON.parse(e.data);
       if (st.lang && st.lang !== lang) { lang = st.lang; applyLang(); }
-      // 初回のみ：設定欄をサーバの実値に合わせる（開いた時点の構成が一目で合う）
-      if (!settingsSynced) {
-        settingsSynced = true;
-        if (Number.isFinite(st.talkSec)) document.getElementById('setTalk').value = st.talkSec / 60;
-        if (Number.isFinite(st.qaSec)) document.getElementById('setQa').value = st.qaSec / 60;
-        if (Number.isFinite(st.talkWarnSec)) document.getElementById('setTalkWarn').value = st.talkWarnSec / 60;
-        if (Number.isFinite(st.talkWarn2Sec)) document.getElementById('setTalkWarn2').value = st.talkWarn2Sec / 60;
-      }
       // F: Mac でのベル（初回は基準合わせのみ）
       if (st.bellEvent) {
         if (lastBellId === null) lastBellId = st.bellEvent.id;
