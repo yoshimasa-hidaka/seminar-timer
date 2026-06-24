@@ -89,12 +89,13 @@
   .presetchip { flex: 1; font-size: 13px; padding: 9px 10px; text-align: left; background: #2e3238; }
   .presetdel { flex: none; padding: 9px 13px; font-size: 14px; background: #2e3238; }
   .hint { color: #6b7280; font-size: 11px; line-height: 1.6; }
-  /* 進行中は時間設定 UI を隠す（display.html/control.html と同じ規律） */
-  #panel.running #editArea { display: none; }
+  /* セッション中（走行・一時停止＝idle 以外）は時間設定 UI を隠す。idle（未開始・トーク間）だけ全展開。
+     一時停止でもレイアウトが跳ねず、ステッパー誤タップによる set リセットも防ぐ。 */
+  #panel:not(.idle) #editArea { display: none; }
   #panel.idle #adjustArea { display: none; }
-  /* 再生中はパネルを「再生/リセット/質疑へ」の行までに縮め、タイマーを最大化。
-     時間調整(adjust)・メッセージ・詳細設定はその下に隠れ、パネル内スクロールで出す。 */
-  #panel.running { max-height: 135px; }
+  /* セッション中はパネルを上部（phead＝音/言語/全画面 の行＋開始/リセット/質疑へ の行）までに縮め、
+     タイマーを最大化。時間調整(adjust)・メッセージ・詳細設定はその下に隠れ、パネル内スクロールで出す。 */
+  #panel:not(.idle) { max-height: 135px; }
 
   #message {
     position: fixed; left: 0; right: 0; top: 0; background: #fff; color: #111;
