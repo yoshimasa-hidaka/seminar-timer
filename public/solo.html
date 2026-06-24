@@ -1,0 +1,486 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="講演タイマー">
+<title>講演タイマー — iPad 単体</title>
+<style>
+  :root { --bg: #0a7d32; }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    color: #fff; font-family: -apple-system, "Hiragino Sans", system-ui, sans-serif;
+    overflow: hidden; -webkit-user-select: none; user-select: none;
+    display: flex; flex-direction: column; height: 100vh; height: 100dvh; background: #111;
+  }
+  /* 上：表示部（display.html 準拠の配色） */
+  #display {
+    flex: 1; min-height: 0; background: var(--bg); transition: background-color .4s ease;
+    display: flex; flex-direction: column; align-items: stretch; justify-content: center;
+    position: relative; padding: 1vh 2vw;
+  }
+  #display.warn { --bg: #c79100; }
+  #display.over { --bg: #b3151f; }
+  #display.over.blink { --bg: #6e0d14; }
+  #segment { text-align: center; font-size: 4.5vh; font-weight: 800; letter-spacing: .04em; }
+  #segment .badge { display: inline-block; padding: .15em .8em; border-radius: 999px; background: rgba(255,255,255,.18); }
+  #clock {
+    flex: 1; display: flex; align-items: center; justify-content: center; cursor: pointer;
+    font-variant-numeric: tabular-nums; font-weight: 800; letter-spacing: -.02em;
+    font-size: 30vh; line-height: 1; min-height: 0;
+  }
+  #clock .sign { font-size: 18vh; vertical-align: middle; margin-right: .05em; }
+  #total { text-align: center; font-size: 4.4vh; font-weight: 700; opacity: .92; font-variant-numeric: tabular-nums; min-height: 5vh; }
+  #status { text-align: center; font-size: 3.2vh; opacity: .85; min-height: 3.6vh; }
+  #endtime { text-align: center; font-size: 2.8vh; opacity: .7; font-variant-numeric: tabular-nums; min-height: 3.2vh; }
+
+  /* 下：操作部 */
+  #panel { background: #1b1d21; color: #eee; padding: 10px 12px calc(10px + env(safe-area-inset-bottom)); overflow-y: auto; max-height: 52vh; }
+  .phead { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-bottom: 8px; }
+  .phead .row { display: flex; gap: 6px; }
+  .toggle button { padding: 7px 12px; font-size: 13px; background: #2e3238; border-radius: 8px 0 0 8px; }
+  .toggle button + button { border-radius: 0 8px 8px 0; }
+  .toggle button.active { background: #2e7d32; }
+  #btnSound { padding: 7px 12px; font-size: 13px; border-radius: 8px; background: #2e3238; flex: none; }
+  #btnSound.on { background: #2e7d32; }
+  #btnFs { padding: 7px 12px; font-size: 13px; border-radius: 8px; background: #2e3238; flex: none; }
+  button { border: none; border-radius: 10px; background: #2e3238; color: #eee; cursor: pointer; font-family: inherit; }
+  button:active { transform: scale(.97); }
+  button:disabled { opacity: .35; cursor: not-allowed; }
+  button:disabled:active { transform: none; }
+  .row { display: flex; gap: 8px; flex-wrap: wrap; }
+  .transport button { flex: 1; min-width: 64px; padding: 16px 10px; font-size: 17px; font-weight: 700; }
+  .transport .primary { background: #2e7d32; }
+  .transport .muted { background: #2e3238; }
+  h2 { font-size: 13px; color: #9aa; margin: 14px 0 6px; font-weight: 600; }
+  .setSummary { display: flex; gap: 8px; margin: 6px 0; }
+  .setSummary > div { flex: 1; text-align: center; background: #23262b; border-radius: 8px; padding: 6px 3px; }
+  .setSummary > div > span { display: block; font-size: 11px; color: #9aa; margin-bottom: 2px; }
+  .setSummary .stepRow { display: flex; align-items: center; justify-content: center; gap: 3px; }
+  .setSummary .stepRow b { font-size: 16px; font-variant-numeric: tabular-nums; min-width: 3.2em; }
+  .setSummary .step { flex: none; width: 28px; min-width: 28px; padding: 6px 0; font-size: 15px; background: #3a3f47; border-radius: 6px; }
+  .setSummary .tot { background: #2e7d32; }
+  .setSummary .tot .step { background: #256528; }
+  .preset { display: grid; grid-template-columns: repeat(auto-fill, minmax(86px, 1fr)); gap: 6px; }
+  .preset button { background: #353a44; font-size: 14px; padding: 11px 6px; }
+  .quick { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+  .quick button { background: #353a44; font-size: 14px; padding: 11px 6px; }
+  .adjust { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+  .adjust button { padding: 12px 4px; font-size: 14px; }
+  .msgActive { text-align: center; font-size: 13px; min-height: 18px; margin-top: 8px; color: #e0b34a; }
+  details { margin-top: 12px; border-top: 1px solid #2e3238; padding-top: 4px; }
+  summary { cursor: pointer; color: #9aa; font-size: 14px; font-weight: 600; padding: 8px 0; }
+  .field { display: flex; gap: 8px; align-items: center; margin-bottom: 8px; }
+  .field label { width: 9em; color: #9aa; font-size: 13px; }
+  .field input[type=range] { flex: 1; }
+  #bellSounds button { flex: none; padding: 8px 18px; font-size: 13px; }
+  #bellSounds button.active { background: #2e7d32; }
+  .presetrow { display: flex; gap: 6px; margin-bottom: 6px; }
+  .presetchip { flex: 1; font-size: 13px; padding: 9px 10px; text-align: left; background: #2e3238; }
+  .presetdel { flex: none; padding: 9px 13px; font-size: 14px; background: #2e3238; }
+  .hint { color: #6b7280; font-size: 11px; line-height: 1.6; }
+  /* 進行中は時間設定 UI を隠す（display.html/control.html と同じ規律） */
+  #panel.running #editArea { display: none; }
+  #panel.idle #adjustArea { display: none; }
+
+  #message {
+    position: fixed; left: 0; right: 0; top: 0; background: #fff; color: #111;
+    font-size: 7vh; font-weight: 800; text-align: center; padding: 3vh 4vw;
+    box-shadow: 0 1vh 3vh rgba(0,0,0,.45); transform: translateY(-110%); transition: transform .3s ease; z-index: 9;
+  }
+  #message.show { transform: translateY(0); animation: msgflash .7s ease-in-out 3; }
+  @keyframes msgflash { 0%, 100% { background: #fff; } 50% { background: #ffd21e; } }
+  #overlay {
+    position: fixed; inset: 0; background: #000; display: flex; align-items: center; justify-content: center;
+    flex-direction: column; gap: 4vh; cursor: pointer; z-index: 10;
+  }
+  #overlay h1 { font-size: 7vh; } #overlay p { font-size: 3vh; opacity: .7; text-align: center; padding: 0 6vw; }
+  #overlay.hidden { display: none; }
+</style>
+</head>
+<body>
+  <div id="display">
+    <div id="segment"><span class="badge"></span></div>
+    <div id="clock">--:--</div>
+    <div id="total"></div>
+    <div id="status"></div>
+    <div id="endtime"></div>
+  </div>
+
+  <div id="panel">
+    <div class="phead">
+      <div class="row">
+        <button id="btnSound"></button>
+        <button id="btnFs">⛶</button>
+      </div>
+      <div class="toggle row">
+        <button id="langJa" class="active">日本語</button>
+        <button id="langEn">English</button>
+      </div>
+    </div>
+
+    <div class="row transport">
+      <button class="primary" id="btnPlayPause"></button>
+      <button class="muted" id="btnReset"></button>
+      <button class="primary" id="btnToQa"></button>
+    </div>
+
+    <div id="editArea">
+      <div class="setSummary">
+        <div><span data-i18n="sumTalk"></span><div class="stepRow"><button class="step" data-dim="talk" data-dir="-1">−</button><b id="valTalk">–</b><button class="step" data-dim="talk" data-dir="1">＋</button></div></div>
+        <div><span data-i18n="sumQa"></span><div class="stepRow"><button class="step" data-dim="qa" data-dir="-1">−</button><b id="valQa">–</b><button class="step" data-dim="qa" data-dir="1">＋</button></div></div>
+        <div class="tot"><span data-i18n="sumTotal"></span><div class="stepRow"><button class="step" data-dim="total" data-dir="-1">−</button><b id="valTotal">–</b><button class="step" data-dim="total" data-dir="1">＋</button></div></div>
+      </div>
+      <div class="setSummary">
+        <div><span data-i18n="sumTalkWarn"></span><div class="stepRow"><button class="step" data-dim="talkWarn" data-dir="-1">−</button><b id="valTalkWarn">–</b><button class="step" data-dim="talkWarn" data-dir="1">＋</button></div></div>
+        <div><span data-i18n="sumTalkWarn2"></span><div class="stepRow"><button class="step" data-dim="talkWarn2" data-dir="-1">−</button><b id="valTalkWarn2">–</b><button class="step" data-dim="talkWarn2" data-dir="1">＋</button></div></div>
+      </div>
+      <h2 data-i18n="presetH"></h2>
+      <div class="preset" id="presets"></div>
+    </div>
+
+    <div id="adjustArea">
+      <h2 data-i18n="adjustH"></h2>
+      <div class="adjust">
+        <button data-adj="-60" data-i18n="m1"></button>
+        <button data-adj="-10" data-i18n="s10m"></button>
+        <button data-adj="10" data-i18n="s10p"></button>
+        <button data-adj="60" data-i18n="p1"></button>
+      </div>
+    </div>
+
+    <h2 data-i18n="msgH"></h2>
+    <div class="quick" id="quickMsgs"></div>
+    <div class="row" style="margin-top:6px"><button class="muted" id="btnMsgClear" style="flex:1;padding:11px" data-i18n="clear"></button></div>
+    <div class="msgActive" id="msgActive"></div>
+
+    <details>
+      <summary data-i18n="moreH"></summary>
+      <h2 data-i18n="bellSoundH"></h2>
+      <div class="row" id="bellSounds"></div>
+      <div class="field"><label data-i18n="volLabel"></label><input type="range" id="volSlider" min="0" max="1" step="0.05" value="0.9"></div>
+      <div class="field"><label data-i18n="pitchLabel"></label><input type="range" id="pitchSlider" min="0.5" max="2" step="0.05" value="1"></div>
+      <h2 data-i18n="presetEditH"></h2>
+      <div id="presetList"></div>
+      <button class="muted" id="btnSavePreset" style="width:100%;padding:11px" data-i18n="savePreset"></button>
+      <h2 data-i18n="keyH"></h2>
+      <div class="hint" data-i18n="keyHint"></div>
+    </details>
+  </div>
+
+  <div id="message"></div>
+  <div id="overlay">
+    <h1 id="ovTitle">タップして開始</h1>
+    <p id="ovHint">音を鳴らすために最初に一度タップしてください</p>
+  </div>
+
+<script src="timer-core.js"></script>
+<script src="bell.js"></script>
+<script>
+const I18N = {
+  ja: {
+    start: '開始 / 再開', pause: '一時停止', reset: 'リセット', toQa: '質疑応答へ',
+    adjustH: '時間調整', m1: '−1分', s10m: '−10秒', s10p: '+10秒', p1: '+1分',
+    msgH: 'メッセージを表示', clear: 'メッセージを消す',
+    moreH: '詳細設定（ベル音・プリセット編集・キーボード）',
+    presetH: 'プリセット（講演＋質疑）',
+    presetEditH: 'プリセット編集（✕で削除）', savePreset: '＋ 今の設定で新規追加',
+    bellSoundH: 'ベル音（選ぶと試聴）', volLabel: '音量', pitchLabel: '高さ',
+    keyH: 'キーボード操作', keyHint: 'スペース＝開始/一時停止　R＝リセット　Q＝質疑へ　T＝講演に戻す　←/→＝±10秒　↑/↓＝±1分',
+    sumTalk: '講演', sumQa: '質疑', sumTotal: '全体', minU: '分', sumTalkWarn: '予鈴1', sumTalkWarn2: '予鈴2', warnShort: '予鈴',
+    running: '進行中', paused: '一時停止中', standby: '待機中', talk: '講演', qa: '質疑応答', over: '超過',
+    soundOn: '🔔 音 オン', soundOff: '🔕 音 オフ',
+    ovTitle: 'タップして開始', ovHint: '音を鳴らすために最初に一度タップしてください',
+    quick: ['あと5分です', 'あと1分です', 'そろそろまとめてください', '時間です'],
+  },
+  en: {
+    start: 'Start / Resume', pause: 'Pause', reset: 'Reset', toQa: 'Go to Q&A',
+    adjustH: 'Adjust time', m1: '−1 min', s10m: '−10 s', s10p: '+10 s', p1: '+1 min',
+    msgH: 'Show a message', clear: 'Clear message',
+    moreH: 'More (bell sound, edit presets, keyboard)',
+    presetH: 'Presets (talk + Q&A)',
+    presetEditH: 'Edit presets (✕ to delete)', savePreset: '＋ Add current as new',
+    bellSoundH: 'Bell sound (tap to preview)', volLabel: 'Volume', pitchLabel: 'Pitch',
+    keyH: 'Keyboard', keyHint: 'Space = start/pause   R = reset   Q = to Q&A   T = back to talk   ←/→ = ±10 s   ↑/↓ = ±1 min',
+    sumTalk: 'Talk', sumQa: 'Q&A', sumTotal: 'Total', minU: ' min', sumTalkWarn: 'Warn 1', sumTalkWarn2: 'Warn 2', warnShort: 'warn',
+    running: 'Running', paused: 'Paused', standby: 'Standby', talk: 'Talk', qa: 'Q&A', over: 'OVERTIME',
+    soundOn: '🔔 Sound ON', soundOff: '🔕 Sound OFF',
+    ovTitle: 'Tap to start', ovHint: 'Tap once to enable the bell sound',
+    quick: ['5 minutes left', '1 minute left', 'Please wrap up', 'Time is up'],
+  },
+};
+
+const LS_KEY = 'seminar-timer-solo';
+let state = TimerCore.defaultState();
+let soundOn = true;
+let lang = 'ja';
+let blinkOn = false;
+let lastPresetsSig = null;
+const $ = (id) => document.getElementById(id);
+function t() { return I18N[lang]; }
+
+// ---- 永続化（localStorage）。走行中の時計は保存しない＝CONFIG_KEYS のみ＋soundOn ----
+function load() {
+  let raw = {};
+  try { raw = JSON.parse(localStorage.getItem(LS_KEY) || '{}') || {}; } catch (_) {}
+  const clamp = TimerCore.clampSec;
+  const sec = (v) => { const n = Number(v); return Number.isFinite(n) ? clamp(n) : null; };
+  const num = (v, lo, hi) => { const n = Number(v); return Number.isFinite(n) ? Math.max(lo, Math.min(hi, n)) : null; };
+  let x;
+  if ((x = sec(raw.talkSec)) != null) state.talkSec = Math.max(60, x);
+  if ((x = sec(raw.qaSec)) != null) state.qaSec = x;
+  if ((x = sec(raw.talkWarnSec)) != null) state.talkWarnSec = x;
+  if ((x = sec(raw.talkWarn2Sec)) != null) state.talkWarn2Sec = x;
+  if ((x = num(raw.volume, 0, 1)) != null) state.volume = x;
+  if ((x = num(raw.pitch, 0.25, 4)) != null) state.pitch = x;
+  if (['chime', 'bell', 'beep'].includes(raw.bellSound)) state.bellSound = raw.bellSound;
+  if (['ja', 'en'].includes(raw.lang)) state.lang = raw.lang;
+  if (['phase', 'total'].includes(raw.clockScope)) state.clockScope = raw.clockScope;
+  const ps = TimerCore.normalizePresets(raw.presets);
+  if (ps) state.presets = ps;
+  if (typeof raw.soundOn === 'boolean') soundOn = raw.soundOn;
+  state.remainingSec = state.talkSec;
+  lang = state.lang;
+}
+function save() {
+  const out = { soundOn };
+  for (const k of TimerCore.CONFIG_KEYS) out[k] = state[k];
+  try { localStorage.setItem(LS_KEY, JSON.stringify(out)); } catch (_) {}
+}
+
+function ring(type) { if (soundOn && window.Bell) Bell.ring(type, state.bellSound); }
+
+// ---- コマンド＝コアに委譲（server.js と同一ロジック）----
+function cmd(obj) {
+  const r = TimerCore.applyCommand(state, obj);
+  if (!r.ok) return;
+  for (const b of r.bells) ring(b);
+  if (r.persist) save();
+  render();
+}
+
+// ---- 毎秒の tick（コア）----
+setInterval(() => {
+  const bells = TimerCore.tick(state);
+  for (const b of bells) ring(b);
+  render();
+}, 1000);
+// 超過点滅
+setInterval(() => {
+  const d = $('display');
+  if (d.classList.contains('over')) { blinkOn = !blinkOn; d.classList.toggle('blink', blinkOn); }
+  else d.classList.remove('blink');
+}, 600);
+
+function fmt(sec) {
+  const over = sec < 0; const a = Math.abs(sec);
+  return { over, body: String(Math.floor(a / 60)).padStart(2, '0') + ':' + String(a % 60).padStart(2, '0') };
+}
+
+function render() {
+  const st = state, d = t(), en = lang === 'en';
+  if (window.Bell) { Bell.setVolume(st.volume); Bell.setPitch(st.pitch); }
+  const totalRem = st.segment === 'qa' ? st.remainingSec : st.remainingSec + st.qaSec;
+  const scopeTotal = st.clockScope === 'total';
+  const bigSec = scopeTotal ? totalRem : st.remainingSec;
+  const { over, body } = fmt(bigSec);
+  $('clock').innerHTML = (over ? '<span class="sign">+</span>' : '') + body;
+
+  // 色：緑→黄（予鈴以下・講演のみ）→赤（超過）
+  const warnSec = st.segment === 'talk' ? Math.max(st.talkWarnSec || 0, st.talkWarn2Sec || 0) : 0;
+  const disp = $('display'); disp.classList.remove('warn', 'over');
+  if (scopeTotal) { if (totalRem <= 0) disp.classList.add('over'); }
+  else if (st.remainingSec <= 0) disp.classList.add('over');
+  else if (warnSec > 0 && st.remainingSec <= warnSec) disp.classList.add('warn');
+
+  const hasQa = st.qaSec > 0;
+  document.querySelector('#segment .badge').textContent = st.segment === 'qa' ? d.qa : d.talk;
+
+  const totalEl = $('total');
+  if (hasQa && st.segment === 'talk') {
+    if (scopeTotal) { const p = fmt(st.remainingSec); totalEl.textContent = (en ? 'Talk left ' : '講演のこり ') + (p.over ? '+' : '') + p.body; }
+    else { const tot = fmt(totalRem); totalEl.textContent = (en ? 'Total ' : '全体のこり ') + (tot.over ? '+' : '') + tot.body + (en ? ' (incl. Q&A)' : '（質疑応答こみ）'); }
+    totalEl.style.visibility = 'visible';
+  } else totalEl.style.visibility = 'hidden';
+
+  $('status').textContent = st.phase === 'running' ? (over ? d.over : '') : st.phase === 'paused' ? d.paused : d.standby;
+
+  const endEl = $('endtime');
+  if (st.phase === 'running') {
+    const end = new Date(Date.now() + totalRem * 1000);
+    endEl.textContent = (en ? 'Ends ~ ' : '終了予定 ') + String(end.getHours()).padStart(2, '0') + ':' + String(end.getMinutes()).padStart(2, '0');
+    endEl.style.visibility = 'visible';
+  } else endEl.style.visibility = 'hidden';
+
+  const msg = $('message');
+  if (st.message) {
+    if (msg.textContent !== st.message) { msg.textContent = st.message; msg.style.animation = 'none'; void msg.offsetWidth; msg.style.animation = ''; }
+    msg.classList.add('show');
+  } else msg.classList.remove('show');
+  $('msgActive').textContent = st.message ? (en ? 'Showing: ' : '表示中: ') + st.message : '';
+
+  // 操作部の状態
+  const running = st.phase === 'running';
+  const pp = $('btnPlayPause');
+  pp.textContent = running ? ('⏸ ' + d.pause) : ('▶ ' + d.start);
+  pp.classList.toggle('primary', !running); pp.classList.toggle('muted', running);
+  $('btnReset').disabled = running;            // 進行中はリセット不可
+  $('btnToQa').disabled = !hasQa || st.segment === 'qa';
+  const panel = $('panel');
+  panel.classList.toggle('running', running);
+  panel.classList.toggle('idle', st.phase === 'idle');
+
+  // サマリー値
+  const m = (n) => (Math.round(n / 60 * 10) / 10) + d.minU;
+  $('valTalk').textContent = m(st.talkSec); $('valQa').textContent = m(st.qaSec);
+  $('valTotal').textContent = m(st.talkSec + st.qaSec);
+  $('valTalkWarn').textContent = m(st.talkWarnSec); $('valTalkWarn2').textContent = m(st.talkWarn2Sec);
+
+  // ベル音ボタン・スライダー
+  document.querySelectorAll('#bellSounds button').forEach((b) => b.classList.toggle('active', b.dataset.sound === st.bellSound));
+  const vs = $('volSlider'); if (document.activeElement !== vs) vs.value = st.volume;
+  const ps2 = $('pitchSlider'); if (document.activeElement !== ps2) ps2.value = st.pitch;
+  const bs = $('btnSound'); bs.textContent = soundOn ? d.soundOn : d.soundOff; bs.classList.toggle('on', soundOn);
+
+  // プリセットは変化時だけ作り直す
+  const psig = JSON.stringify(st.presets || []);
+  if (psig !== lastPresetsSig) { lastPresetsSig = psig; buildPresets(); renderPresetList(); }
+}
+
+// ---- i18n 適用（言語非依存テキストの差し込み＋言語依存ボタン）----
+function applyLang() {
+  const d = t();
+  document.documentElement.lang = lang;
+  document.querySelectorAll('[data-i18n]').forEach((el) => { const k = el.dataset.i18n; if (d[k]) el.textContent = d[k]; });
+  $('btnReset').textContent = d.reset;
+  $('btnToQa').textContent = d.toQa;
+  $('ovTitle').textContent = d.ovTitle; $('ovHint').textContent = d.ovHint;
+  $('langJa').classList.toggle('active', lang === 'ja');
+  $('langEn').classList.toggle('active', lang === 'en');
+  buildQuick(); buildBellSounds();
+  render();
+}
+function buildQuick() {
+  const wrap = $('quickMsgs'); wrap.innerHTML = '';
+  t().quick.forEach((text) => { const b = document.createElement('button'); b.textContent = text; b.onclick = () => cmd({ action: 'message', text }); wrap.appendChild(b); });
+}
+function buildBellSounds() {
+  const wrap = $('bellSounds'); if (!wrap || !window.Bell) return;
+  wrap.innerHTML = '';
+  Bell.ORDER.forEach((name) => {
+    const b = document.createElement('button'); b.className = 'muted' + (name === state.bellSound ? ' active' : '');
+    b.dataset.sound = name; b.textContent = (Bell.LABELS[name] && Bell.LABELS[name][lang]) || name;
+    b.onclick = () => { cmd({ action: 'setBellSound', sound: name }); if (window.Bell) { Bell.unlock(); Bell.ring('warn', name); } };
+    wrap.appendChild(b);
+  });
+}
+function buildPresets() {
+  const wrap = $('presets'); wrap.innerHTML = '';
+  (state.presets || []).forEach(([tk, qa, tw, tw2]) => {
+    const b = document.createElement('button'); b.textContent = qa > 0 ? `${tk}+${qa}` : `${tk}`;
+    b.onclick = () => cmd({ action: 'set', talkMin: tk, qaMin: qa, talkWarnMin: tw, talkWarn2Min: tw2 });
+    wrap.appendChild(b);
+  });
+}
+function renderPresetList() {
+  const wrap = $('presetList'); const d = t(); wrap.innerHTML = '';
+  const presets = state.presets || [];
+  presets.forEach(([tk, qa, tw, tw2], i) => {
+    const row = document.createElement('div'); row.className = 'presetrow';
+    const chip = document.createElement('button'); chip.className = 'presetchip';
+    chip.textContent = `${tk}+${qa}（${d.warnShort} ${tw}/${tw2}）`;
+    chip.onclick = () => cmd({ action: 'set', talkMin: tk, qaMin: qa, talkWarnMin: tw, talkWarn2Min: tw2 });
+    const del = document.createElement('button'); del.className = 'presetdel'; del.textContent = '✕';
+    del.onclick = () => {
+      const label = `${tk}+${qa}`;
+      if (!window.confirm(lang === 'en' ? `Delete preset "${label}"?` : `プリセット「${label}」を削除しますか？`)) return;
+      const next = presets.slice(); next.splice(i, 1); cmd({ action: 'setPresets', presets: next });
+    };
+    row.appendChild(chip); row.appendChild(del); wrap.appendChild(row);
+  });
+}
+
+// ---- 操作ハンドラ ----
+$('btnPlayPause').onclick = () => cmd({ action: state.phase === 'running' ? 'pause' : 'start' });
+$('btnReset').onclick = () => { if (state.phase !== 'running') cmd({ action: 'reset' }); };
+$('btnToQa').onclick = () => cmd({ action: 'segment', to: 'qa' });
+$('btnMsgClear').onclick = () => cmd({ action: 'clearMessage' });
+$('clock').onclick = () => { if (state.qaSec > 0) cmd({ action: 'setClockScope', scope: state.clockScope === 'total' ? 'phase' : 'total' }); };
+
+document.querySelectorAll('.setSummary .step').forEach((btn) => {
+  btn.onclick = () => {
+    let talk = Math.round(state.talkSec / 60), qa = Math.round(state.qaSec / 60);
+    let w1 = Math.round(state.talkWarnSec / 60), w2 = Math.round(state.talkWarn2Sec / 60);
+    const dir = Number(btn.dataset.dir);
+    switch (btn.dataset.dim) {
+      case 'qa': qa = Math.max(0, qa + dir); break;
+      case 'talkWarn': w1 = Math.max(0, w1 + dir); break;
+      case 'talkWarn2': w2 = Math.max(0, w2 + dir); break;
+      default: talk = Math.max(1, talk + dir); // talk と total はどちらも講演を増減
+    }
+    cmd({ action: 'set', talkMin: talk, qaMin: qa, talkWarnMin: w1, talkWarn2Min: w2 });
+  };
+});
+document.querySelectorAll('[data-adj]').forEach((b) => b.onclick = () => cmd({ action: 'adjust', deltaSec: Number(b.dataset.adj) }));
+
+$('volSlider').addEventListener('input', () => { if (window.Bell) Bell.setVolume(Number($('volSlider').value)); });
+$('volSlider').addEventListener('change', () => { cmd({ action: 'setVolume', value: Number($('volSlider').value) }); if (window.Bell) { Bell.unlock(); Bell.ring('warn', state.bellSound); } });
+$('pitchSlider').addEventListener('input', () => { if (window.Bell) Bell.setPitch(Number($('pitchSlider').value)); });
+$('pitchSlider').addEventListener('change', () => { cmd({ action: 'setPitch', value: Number($('pitchSlider').value) }); if (window.Bell) { Bell.unlock(); Bell.ring('warn', state.bellSound); } });
+
+$('btnSavePreset').onclick = () => {
+  const r = (s) => Math.round((s || 0) / 60);
+  const next = (state.presets || []).slice();
+  next.push([r(state.talkSec), r(state.qaSec), r(state.talkWarnSec), r(state.talkWarn2Sec)]);
+  cmd({ action: 'setPresets', presets: next });
+};
+
+$('btnSound').onclick = () => { soundOn = !soundOn; if (soundOn && window.Bell) { Bell.unlock(); Bell.ring('warn', state.bellSound); } save(); render(); };
+function setLang(l) { lang = l; cmd({ action: 'setLang', lang: l }); applyLang(); }
+$('langJa').onclick = () => setLang('ja');
+$('langEn').onclick = () => setLang('en');
+
+// クリック後はフォーカスを外す＝スペース等の二重発火防止
+document.addEventListener('click', (e) => { if (e.target.tagName === 'BUTTON') e.target.blur(); });
+document.addEventListener('keydown', (e) => {
+  const tag = (e.target.tagName || '').toLowerCase(); if (tag === 'input' || tag === 'textarea') return;
+  let handled = true;
+  switch (e.code) {
+    case 'Space': cmd({ action: state.phase === 'running' ? 'pause' : 'start' }); break;
+    case 'KeyR': if (state.phase !== 'running') cmd({ action: 'reset' }); break;
+    case 'KeyQ': cmd({ action: 'segment', to: 'qa' }); break;
+    case 'KeyT': cmd({ action: 'segment', to: 'talk' }); break;
+    case 'ArrowRight': cmd({ action: 'adjust', deltaSec: 10 }); break;
+    case 'ArrowLeft': cmd({ action: 'adjust', deltaSec: -10 }); break;
+    case 'ArrowUp': cmd({ action: 'adjust', deltaSec: 60 }); break;
+    case 'ArrowDown': cmd({ action: 'adjust', deltaSec: -60 }); break;
+    default: handled = false;
+  }
+  if (handled) e.preventDefault();
+});
+
+// ---- スリープ防止・音声解錠・全画面 ----
+let wakeLock = null;
+async function acquireWakeLock() {
+  try { if ('wakeLock' in navigator && !wakeLock) { wakeLock = await navigator.wakeLock.request('screen'); wakeLock.addEventListener('release', () => { wakeLock = null; }); } } catch (_) {}
+}
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') { acquireWakeLock(); if (window.Bell) Bell.unlock(); } });
+function goFullscreen() { const el = document.documentElement; if (el.requestFullscreen) el.requestFullscreen().catch(() => {}); }
+$('btnFs').onclick = goFullscreen;
+document.addEventListener('pointerdown', () => { if (window.Bell) Bell.unlock(); acquireWakeLock(); });
+$('overlay').onclick = () => {
+  if (window.Bell) { Bell.unlock(); Bell.ring('warn', state.bellSound); }
+  $('overlay').classList.add('hidden'); acquireWakeLock(); goFullscreen();
+};
+
+// ---- 起動 ----
+load();
+applyLang();   // render も呼ぶ
+acquireWakeLock();
+</script>
+</body>
+</html>

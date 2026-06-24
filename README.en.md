@@ -7,7 +7,16 @@ Zero dependencies (Node.js standard library only) and **fully offline** — no `
 
 ---
 
-## Quick start
+## Two modes (pick by use case)
+
+| Mode | Setup | Network | When |
+|---|---|---|---|
+| **① Two-device** | Launch on the Mac → display on iPad, control on Mac | Mac & iPad on the same LAN | iPad faces the audience; you control from the Mac |
+| **② iPad-only** | One iPad does both display and control | **None (fully offline)** | Avoid all connection hassle; iPad is the only device |
+
+**② is the newly added mode**: just send a single file, `seminar-timer-ipad.html`, to an iPad and open it — no server, no Wi-Fi setup (the trade-off is that control and display share one screen). See "iPad-only mode" below.
+
+## Quick start (① two-device)
 
 1. Double-click `start.command` in Finder (or run `node server.js` in a terminal).
 2. **The control screen (on the Mac) opens in your browser automatically.** The iPad URL and a QR code appear at the top.
@@ -15,6 +24,19 @@ Zero dependencies (Node.js standard library only) and **fully offline** — no `
 4. Keep the Mac and iPad on the **same WiFi** (or use the Mac's Internet Sharing if there is no venue WiFi).
 
 > If port 8080 is busy it automatically falls back to 8081, etc. (the port is shown in the startup log and the control screen).
+
+## iPad-only mode (② offline, single file)
+
+To run entirely on one iPad with no network at all:
+
+1. Send the bundled **`seminar-timer-ipad.html`** to the iPad (AirDrop, email, iCloud Drive, …).
+2. Open it from the **Files** app (it renders in Safari). **Add to Home Screen** to run it like a full-screen app.
+3. **Tap once** to enable sound. Use the controls in the lower half (start/pause, presets, warnings, …).
+4. Settings (durations, warnings, bell sound, presets, …) are **saved on the iPad (localStorage)** and restored next time.
+
+> This file is **auto-generated** from `public/solo.html` + `timer-core.js` + `bell.js` via `node build-solo.js` (a single file, zero external deps). Regenerate it after editing the sources.
+> If the Mac server is running, you can also open single-device mode at `http://localhost:PORT/solo` (handy for testing).
+> **Both modes share the same state machine (`public/timer-core.js`)**, so the timer, warnings, and auto-advance behave identically.
 
 ## For first-time users (giving / receiving the app)
 
@@ -77,9 +99,20 @@ The app makes **no external requests** (no CDN, no web fonts, no APIs; the QR is
 
 If there is no usable venue WiFi, make a closed two-device WiFi without any internet:
 
-- **Option 1: Make the Mac the hotspot (recommended)** — System Settings → Internet Sharing → On, and connect the iPad to the Mac's WiFi. This works even with no internet connection (the server auto-detects the Mac's IP even when it lands on `bridge100`, and puts it in the URL/QR).
-- **Option 2: Make the iPad the hotspot** — turn on the iPad's Personal Hotspot and connect the Mac to it.
+- **Option 1: Make the Mac the hotspot (recommended)**
+  1. Open **System Settings** (Apple menu → System Settings…).
+  2. In the sidebar, go to **General → Sharing**.
+  3. Click the ⓘ (info) button on the **Internet Sharing** row. Set **"Share your connection to computers using" to Wi-Fi**, then use **Wi-Fi Options…** to set a network name and password (WPA2) and click OK.
+  4. Turn the **Internet Sharing** switch **On** (confirm with "Start").
+  5. On the **iPad: Settings → Wi-Fi**, pick the Mac's Wi-Fi network you just created.
+  - This works even with no internet connection (the server auto-detects the Mac's IP even when it lands on `bridge100`, and puts it in the URL/QR).
+- **Option 2: Make the iPad the hotspot** (**cellular iPads only** — Wi-Fi-only models don't have this)
+  1. On the iPad: **Settings → Personal Hotspot** (or Settings → Cellular → Personal Hotspot).
+  2. Turn **"Allow Others to Join" On**, and note the Wi-Fi password shown.
+  3. On the Mac, click the **Wi-Fi icon in the menu bar** (or System Settings → Wi-Fi) and pick the iPad.
 - Even with venue WiFi, **AP isolation** (blocking device-to-device traffic) can prevent the connection. Switch to Option 1/2 in that case.
+
+> Item names vary slightly by macOS version (older macOS: System Preferences → Sharing → Internet Sharing). If you can't find it, type "Internet Sharing" in the settings search box.
 
 > On the iPad, **tap the display once** after opening it (sound is enabled by that tap). If there's no sound, also check the device volume / mute (the bell icon in Control Center).
 
@@ -89,13 +122,17 @@ If there is no usable venue WiFi, make a closed two-device WiFi without any inte
 
 | File | Role |
 |---|---|
-| `server.js` | HTTP + SSE server (single source of truth, broadcasts state to all clients, persists settings) |
-| `public/control.html` | Mac control screen |
-| `public/display.html` | iPad display screen |
-| `public/bell.js` | Bell-sound synthesis (WebAudio, shared by both screens) |
+| `server.js` | HTTP + SSE server (① two-device; single source of truth; persists settings) |
+| `public/timer-core.js` | **The state machine** (tick, commands, warnings, auto-advance). Shared by server.js and solo.html — no duplicated logic |
+| `public/control.html` | Mac control screen (for ①) |
+| `public/display.html` | iPad display screen (for ①) |
+| `public/solo.html` | iPad-only mode (② display + control in one page) |
+| `public/bell.js` | Bell-sound synthesis (WebAudio, shared by all screens) |
 | `public/qr.js` | QR code generation (offline, no dependencies) |
-| `start.command` | Double-click launcher for Finder |
-| `config.json` | Runtime-saved settings (gitignored, per device) |
+| `build-solo.js` | Builds the single-file bundle from solo.html + shared JS (`node build-solo.js`) |
+| `seminar-timer-ipad.html` | The distributable single file for ② (generated; this is what you give an iPad) |
+| `start.command` | Double-click launcher for Finder (①) |
+| `config.json` | Runtime-saved settings (① ; gitignored, per device) |
 
 No dependencies. Runs on Node.js (macOS). It also runs elsewhere via `node server.js` (the macOS-specific bits are only browser auto-open and IP auto-detection).
 

@@ -8,58 +8,26 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 const { execSync } = require('child_process');
+const TimerCore = require('./public/timer-core.js'); // 状態機械の正本（solo.html と共用）
 
 const PORT = process.env.PORT || 8080;
 const PUBLIC = path.join(__dirname, 'public');
 
 // ---- 権威ある状態（サーバが唯一の真実。クライアントは描画するだけ） ----
-const state = {
-  phase: 'idle',        // idle | running | paused
-  title: '',
-  talkSec: 20 * 60,     // 講演の持ち時間
-  qaSec: 10 * 60,       // 質疑応答の持ち時間（0 なら質疑なし）
-  talkWarnSec: 5 * 60,  // 予鈴1（講演終了の何秒前・予鈴は講演のみ）
-  talkWarn2Sec: 0,      // 予鈴2（講演終了の何秒前・2回目の警告・既定オフ）
-  segment: 'talk',      // 'talk'（講演）| 'qa'（質疑応答）
-  remainingSec: 20 * 60,// 現フェーズの残り。負になると超過（overtime）
-  message: '',          // 司会から speaker へのメッセージ
-  lang: 'ja',           // 表示言語 'ja' | 'en'（コントロールから切替・両画面で同期）
-  clockScope: 'phase',  // iPad の大きい時計 'phase'（現フェーズ）| 'total'（全体=質疑込み）
-  bellSound: 'chime',   // ベル音色 'chime' | 'bell' | 'beep'（両画面で同期）
-  ipadBell: true,       // iPad でベルを鳴らすか（操作画面から切替）
-  volume: 0.9,          // ベル音量 0–1
-  pitch: 1.0,           // ベル音の高さ（周波数倍率）
-  // プリセット [講演, 質疑, 予鈴1, 予鈴2]（分・予鈴2は既定0＝オフ）
-  presets: [[10, 5, 3, 0], [15, 5, 3, 0], [25, 5, 5, 0], [30, 10, 5, 0], [45, 15, 5, 0]],
+// 素の状態はコアの既定から。サーバ固有のフィールド（ベル発火 id・LAN IP・port）だけ足す。
+const state = Object.assign(TimerCore.defaultState(), {
   bellEvent: { id: 0, type: null }, // id をインクリメントして1回だけ鳴らす
-  lanIp: '',            // 起動時に確定（コントロールが iPad 用 URL/QR を作るため）
+  lanIp: '',                        // 起動時に確定（コントロールが iPad 用 URL/QR を作るため）
   port: 0,
-};
+});
 
 const clients = new Set(); // SSE 接続中の response 群
 
-const MAX_SEC = 36000; // 持ち時間・予鈴の上限（10時間）＝暴走値の sanity cap
-const clampSec = (sec) => Math.max(0, Math.min(MAX_SEC, Math.round(sec)));
-
-// プリセット正規化（[講演,質疑,予鈴1,予鈴2]・型/範囲を矯正）。setPresets と loadConfig で共用。
-function normalizePresets(arr) {
-  if (!Array.isArray(arr)) return null;
-  return arr
-    .filter((p) => Array.isArray(p) && p.length >= 2)
-    .map((p) => [
-      Math.max(1, Math.min(600, Math.round(Number(p[0]) || 0))),         // 講演（分・1–600）
-      Math.max(0, Math.min(600, Math.round(Number(p[1]) || 0))),         // 質疑
-      Math.max(0, Math.min(600, Math.round(Number(p[2] != null ? p[2] : 5) || 0))), // 予鈴1
-      Math.max(0, Math.min(600, Math.round(Number(p[3] != null ? p[3] : 0) || 0))), // 予鈴2
-    ])
-    .filter((p) => Number.isFinite(p[0]))
-    .slice(0, 12);
-}
+const { clampSec, normalizePresets } = TimerCore; // loadConfig 用（型/範囲の矯正）
 
 // ---- 設定の永続化（config.json に保存し再起動で復元。走行中の時計は保存しない）----
 const CONFIG_FILE = path.join(__dirname, 'config.json');
-const CONFIG_KEYS = ['talkSec', 'qaSec', 'talkWarnSec', 'talkWarn2Sec', 'bellSound', 'ipadBell', 'volume', 'pitch', 'presets', 'lang', 'clockScope'];
-const CONFIG_ACTIONS = new Set(['set', 'setBellSound', 'setIpadBell', 'setVolume', 'setPitch', 'setPresets', 'setLang', 'setClockScope']);
+const CONFIG_KEYS = TimerCore.CONFIG_KEYS; // 保存対象キー（コアと共用＝ドリフト防止）
 // config.json は手編集/破損もありうるので、ロード時に型・範囲を検証（不正値は既定のまま＝fail-closed）
 function loadConfig() {
   let data = null;
@@ -109,116 +77,21 @@ function ringBell(type) {
   state.bellEvent = { id: state.bellEvent.id + 1, type };
 }
 
-// ---- 毎秒の tick：running の時だけ減算し、しきい値を跨いだらベル ----
+// ---- 毎秒の tick：コアが running 時だけ減算し、跨いだしきい値のベル名を返す ----
 setInterval(() => {
+  const bells = TimerCore.tick(state);
   if (state.phase === 'running') {
-    const before = state.remainingSec;
-    state.remainingSec -= 1;
-    const after = state.remainingSec;
-    // 予鈴（講演フェーズのみ）：予鈴1・予鈴2 をそれぞれ上から跨いだ瞬間に1鈴。
-    // 同値なら二重鳴りしないよう一意化。
-    if (state.segment === 'talk') {
-      for (const w of new Set([state.talkWarnSec, state.talkWarn2Sec])) {
-        if (w > 0 && before > w && after <= w && after > 0) ringBell('warn');
-      }
-    }
-    // フェーズ終了：0 を上から跨いだ瞬間
-    if (before > 0 && after <= 0) {
-      if (state.segment === 'talk' && state.qaSec > 0) {
-        // 講演終了 → 質疑応答へ自動移行（2鈴）
-        ringBell('talkEnd');
-        state.segment = 'qa';
-        state.remainingSec = state.qaSec;
-      } else {
-        // 質疑終了（質疑なしなら講演終了）= 全体終了（3鈴）。以降は超過カウント
-        ringBell('final');
-      }
-    }
+    for (const b of bells) ringBell(b);
     broadcast();
   }
 }, 1000);
 
-// ---- コマンド処理（コントロールページからの POST） ----
+// ---- コマンド処理（コントロールページからの POST）。状態機械はコアに委譲 ----
 function applyCommand(cmd) {
-  switch (cmd.action) {
-    case 'start': // 開始/再開
-      state.phase = 'running';
-      break;
-    case 'pause':
-      if (state.phase === 'running') state.phase = 'paused';
-      break;
-    case 'reset':
-      state.phase = 'idle';
-      state.segment = 'talk';
-      state.remainingSec = state.talkSec;
-      break;
-    case 'set': { // 講演・質疑・予鈴・タイトルを設定（タイマーは講演フェーズの先頭・idle に戻す）
-      const talkMin = Number(cmd.talkMin);
-      const qaMin = Number(cmd.qaMin);
-      const talkWarnMin = Number(cmd.talkWarnMin);
-      const talkWarn2Min = Number(cmd.talkWarn2Min);
-      if (Number.isFinite(talkMin) && talkMin > 0) state.talkSec = Math.max(1, clampSec(talkMin * 60));
-      if (Number.isFinite(qaMin) && qaMin >= 0) state.qaSec = clampSec(qaMin * 60);
-      if (Number.isFinite(talkWarnMin) && talkWarnMin >= 0) state.talkWarnSec = clampSec(talkWarnMin * 60);
-      if (Number.isFinite(talkWarn2Min) && talkWarn2Min >= 0) state.talkWarn2Sec = clampSec(talkWarn2Min * 60);
-      if (typeof cmd.title === 'string') state.title = cmd.title.slice(0, 120);
-      state.segment = 'talk';
-      state.remainingSec = state.talkSec;
-      state.phase = 'idle';
-      break;
-    }
-    case 'segment': { // フェーズを手動で切替（講演が早く終わった等）
-      const to = cmd.to === 'qa' ? 'qa' : 'talk';
-      state.segment = to;
-      state.remainingSec = to === 'qa' ? state.qaSec : state.talkSec;
-      if (to === 'qa') ringBell('talkEnd'); // 質疑へ進む＝2鈴
-      break;
-    }
-    case 'adjust': { // 時間を ±delta 秒
-      const d = Number(cmd.deltaSec);
-      if (Number.isFinite(d)) state.remainingSec += Math.round(d);
-      break;
-    }
-    case 'message':
-      state.message = typeof cmd.text === 'string' ? cmd.text.slice(0, 200) : '';
-      break;
-    case 'clearMessage':
-      state.message = '';
-      break;
-    case 'setLang':
-      state.lang = cmd.lang === 'en' ? 'en' : 'ja';
-      break;
-    case 'setClockScope':
-      state.clockScope = cmd.scope === 'total' ? 'total' : 'phase';
-      break;
-    case 'setBellSound':
-      if (['beep', 'chime', 'bell'].includes(cmd.sound)) state.bellSound = cmd.sound;
-      break;
-    case 'setIpadBell':
-      state.ipadBell = !!cmd.on;
-      break;
-    case 'setVolume': {
-      const v = Number(cmd.value);
-      if (Number.isFinite(v)) state.volume = Math.max(0, Math.min(1, v));
-      break;
-    }
-    case 'setPitch': {
-      const p = Number(cmd.value);
-      if (Number.isFinite(p)) state.pitch = Math.max(0.25, Math.min(4, p));
-      break;
-    }
-    case 'setPresets': {
-      const ps = normalizePresets(cmd.presets);
-      if (ps) state.presets = ps;
-      break;
-    }
-    case 'testBell':
-      ringBell(['warn', 'talkEnd', 'final'].includes(cmd.type) ? cmd.type : 'warn');
-      break;
-    default:
-      return false;
-  }
-  if (CONFIG_ACTIONS.has(cmd.action)) saveConfig(); // 設定変更は永続化
+  const { ok, bells, persist } = TimerCore.applyCommand(state, cmd);
+  if (!ok) return false;
+  for (const b of bells) ringBell(b);
+  if (persist) saveConfig(); // 設定変更は永続化
   broadcast();
   return true;
 }
@@ -261,6 +134,7 @@ const server = http.createServer((req, res) => {
   let file = url.pathname === '/' ? '/display.html' : url.pathname;
   if (file === '/control') file = '/control.html';
   if (file === '/display') file = '/display.html';
+  if (file === '/solo') file = '/solo.html'; // iPad 単体モード（同期不要・ローカル完結）
   const full = path.join(PUBLIC, path.normalize(file));
   if (!full.startsWith(PUBLIC)) { res.writeHead(403); res.end('forbidden'); return; }
   fs.readFile(full, (err, data) => {
