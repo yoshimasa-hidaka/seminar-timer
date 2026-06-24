@@ -57,6 +57,7 @@
   #btnSound { padding: 7px 12px; font-size: 13px; border-radius: 8px; background: #2e3238; flex: none; }
   #btnSound.on { background: #2e7d32; }
   #btnFs { padding: 7px 12px; font-size: 13px; border-radius: 8px; background: #2e3238; flex: none; }
+  .bellbtn { flex: none; padding: 7px 11px; font-size: 13px; border-radius: 8px; background: #2e3238; }
   button { border: none; border-radius: 10px; background: #2e3238; color: #eee; cursor: pointer; font-family: inherit; }
   button:active { transform: scale(.97); }
   button:disabled { opacity: .35; cursor: not-allowed; }
@@ -128,6 +129,9 @@
     <div class="phead">
       <div class="row">
         <button id="btnSound"></button>
+        <button class="bellbtn" data-bell="warn" title="予鈴（1鈴）">🔔1</button>
+        <button class="bellbtn" data-bell="talkEnd" title="講演終了（2鈴）">🔔2</button>
+        <button class="bellbtn" data-bell="final" title="全体終了（3鈴）">🔔3</button>
         <button id="btnFs">⛶</button>
       </div>
       <div class="toggle row">
@@ -755,6 +759,10 @@ $('btnSavePreset').onclick = () => {
 };
 
 $('btnSound').onclick = () => { soundOn = !soundOn; if (soundOn && window.Bell) { Bell.unlock(); Bell.ring('warn', state.bellSound); } save(); render(); };
+// 手動ベル（🔔1/🔔2/🔔3）＝明示操作なので soundOn ゲートを通さず必ず鳴らす（押下が音声解錠の gesture を兼ねる）
+document.querySelectorAll('[data-bell]').forEach((b) => b.onclick = () => {
+  if (window.Bell) { Bell.unlock(); Bell.ring(b.dataset.bell, state.bellSound); }
+});
 function setLang(l) { lang = l; cmd({ action: 'setLang', lang: l }); applyLang(); }
 $('langJa').onclick = () => setLang('ja');
 $('langEn').onclick = () => setLang('en');
