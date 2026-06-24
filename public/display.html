@@ -76,7 +76,6 @@
 </style>
 </head>
 <body>
-  <div id="title"></div>
   <div id="segment"><span class="badge"></span></div>
   <div id="clock">--:--</div>
   <div id="total"></div>
@@ -148,10 +147,6 @@ function render(st) {
     document.body.classList.add('warn');
   }
 
-  const titleEl = document.getElementById('title');
-  titleEl.textContent = st.title || '';
-  titleEl.style.display = st.title ? '' : 'none'; // タイトル無しなら詰める
-
   const en = st.lang === 'en';
   const hasQa = st.qaSec > 0;
   // バッジはフェーズ名のみ（範囲は下の「全体のこり…（質疑応答こみ）」で伝わる）
@@ -163,7 +158,7 @@ function render(st) {
   if (hasQa && st.segment === 'talk') {
     if (scopeTotal) {
       const p = fmt(st.remainingSec);
-      totalEl.textContent = (en ? 'This part ' : 'このフェーズ ') + (p.over ? '+' : '') + p.body;
+      totalEl.textContent = (en ? 'Talk left ' : '講演のこり ') + (p.over ? '+' : '') + p.body;
     } else {
       const tot = fmt(totalRem);
       totalEl.textContent = (en ? 'Total ' : '全体のこり ') + (tot.over ? '+' : '') + tot.body

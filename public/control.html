@@ -19,7 +19,7 @@
   }
   .toggle button + button { border-radius: 0 8px 8px 0; }
   .toggle button.active { background: #2e7d32; }
-  #btnMacBell { border-radius: 8px; }
+  #btnMacBell { border-radius: 8px; padding: 8px 14px; font-size: 14px; }
   .clock {
     text-align: center; font-variant-numeric: tabular-nums; font-weight: 800;
     font-size: 64px; padding: 10px; border-radius: 12px; margin-bottom: 4px;
@@ -27,7 +27,7 @@
   }
   .clock.warn { background: #c79100; }
   .clock.over { background: #b3151f; }
-  .sub { text-align: center; color: #9aa; margin-bottom: 4px; min-height: 18px; }
+  .sub { text-align: center; color: #9aa; margin-bottom: 4px; min-height: 0; }
   .endt { text-align: center; color: #7d8590; margin-bottom: 12px; min-height: 16px; font-variant-numeric: tabular-nums; font-size: 14px; }
   .row { display: flex; gap: 8px; flex-wrap: wrap; }
   button {
@@ -43,7 +43,7 @@
   /* 待機中（未開始）は ±時間調整を非表示（時間はサマリーで設定するため） */
   body.idle #adjustBlock { display: none; }
   .cBadge { text-align: center; font-size: 15px; font-weight: 700; color: #cdd; margin-bottom: 4px; }
-  .cTotal { text-align: center; font-size: 15px; color: #9aa; margin: 4px 0; min-height: 18px;
+  .cTotal { text-align: center; font-size: 15px; color: #9aa; margin: 2px 0 0; min-height: 18px;
     font-variant-numeric: tabular-nums; }
   .cTotal .endinline { opacity: .8; }
   .clock { cursor: pointer; }
@@ -57,6 +57,7 @@
   .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
   .grid4 { display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 8px; }
   .quick button, .preset button { background: #353a44; font-size: 15px; padding: 12px 8px; }
+  #presets { grid-template-columns: repeat(5, 1fr); }
   .muted { background: #2e3238; }
   details { margin-top: 18px; border-top: 1px solid #2e3238; padding-top: 6px; }
   summary { cursor: pointer; color: #9aa; font-size: 15px; font-weight: 600; padding: 8px 0; }
@@ -67,9 +68,8 @@
   .connbar { text-align: center; font-size: 13px; color: #7d8590; margin: 2px 0 10px; cursor: pointer; }
   .connbar b { color: #8fd0a0; font-weight: 600; font-variant-numeric: tabular-nums; }
   #btnMacBell.on { background: #2e7d32; }
-  #btnReset { flex: none; padding: 9px 18px; font-size: 14px; }
-  #btnToQa { flex: none; padding: 9px 18px; font-size: 14px; }
-  .bellbtn { flex: none; padding: 9px 12px; font-size: 14px; }
+  .bellbtn { flex: none; padding: 8px 22px; font-size: 14px; }
+  #adjustBlock button { padding: 10px 6px; font-size: 14px; }
   .msgActive { text-align: center; font-size: 14px; min-height: 20px; margin-top: 10px; color: #e0b34a; }
   #schedule { -webkit-user-select: none; user-select: none; }
   .setSummary { display: flex; gap: 8px; margin: 6px 0 4px; }
@@ -90,7 +90,12 @@
 </head>
 <body>
   <div class="topbar">
-    <button id="btnMacBell" class="muted" style="flex:none" data-i18n="macBellOff"></button>
+    <div class="row" style="flex:none">
+      <button id="btnMacBell" class="muted" style="flex:none" data-i18n="macBellOff"></button>
+      <button class="muted bellbtn" data-bell="warn" title="予鈴（1鈴）">🔔1</button>
+      <button class="muted bellbtn" data-bell="talkEnd" title="講演終了（2鈴）">🔔2</button>
+      <button class="muted bellbtn" data-bell="final" title="全体終了（3鈴）">🔔3</button>
+    </div>
     <div class="toggle row" style="flex:none">
       <button id="langJa" class="active">日本語</button>
       <button id="langEn">English</button>
@@ -101,26 +106,14 @@
   <div class="cBadge" id="ctlBadge"></div>
   <div class="clock" id="clock">--:--</div>
   <div class="cTotal" id="ctlTotal"></div>
-  <div class="sub" id="sub"></div>
 
   <div class="row">
-    <button class="primary big" id="btnStart" data-i18n="start"></button>
-    <button class="big muted" id="btnPause" data-i18n="pause"></button>
-  </div>
-  <div class="row" style="margin-top:8px">
-    <button class="muted bellbtn" data-bell="warn" title="予鈴（1鈴）">🔔1</button>
-    <button class="muted bellbtn" data-bell="talkEnd" title="講演終了（2鈴）">🔔2</button>
-    <button class="muted bellbtn" data-bell="final" title="全体終了（3鈴）">🔔3</button>
-    <span style="flex:1"></span>
-    <button class="muted" id="btnReset" data-i18n="reset"></button>
-    <button class="primary" id="btnToQa" data-i18n="toQa"></button>
+    <button class="big" id="btnPlayPause"></button>
+    <button class="big muted" id="btnReset" data-i18n="reset"></button>
+    <button class="primary big" id="btnToQa" data-i18n="toQa"></button>
   </div>
 
   <div id="schedule">
-    <div id="presetBlock">
-      <h2 data-i18n="presetH"></h2>
-      <div class="grid4 preset" id="presets"></div>
-    </div>
     <div class="setSummary">
       <div>
         <span data-i18n="sumTalk"></span>
@@ -165,6 +158,10 @@
         </div>
       </div>
     </div>
+    <div id="presetBlock">
+      <h2 data-i18n="presetH"></h2>
+      <div class="grid4 preset" id="presets"></div>
+    </div>
     <div class="setSummaryHint" id="setHint" data-i18n="setHint"></div>
   </div>
 
@@ -192,7 +189,6 @@
 
     <div id="setBlock">
       <h2 data-i18n="setH"></h2>
-      <div class="field"><label data-i18n="lblTitle"></label><input id="setTitle"></div>
       <div class="field"><label data-i18n="lblTalk"></label><input id="setTalk" type="number" inputmode="decimal" value="20"></div>
       <div class="field"><label data-i18n="lblQa"></label><input id="setQa" type="number" inputmode="decimal" value="10"></div>
       <div class="field"><label data-i18n="lblTalkWarn"></label><input id="setTalkWarn" type="number" inputmode="decimal" value="5"></div>
@@ -219,7 +215,7 @@ const I18N = {
     phaseH: 'フェーズ切替', toTalk: '講演に戻す', toQa: '質疑応答へ',
     adjustH: '時間調整', m1: '−1分', s10m: '−10秒', s10p: '+10秒', p1: '+1分',
     msgH: 'メッセージを iPad に表示', send: '送信', clear: '消す',
-    moreH: '詳細設定（プリセット・時間・ベル・接続）',
+    moreH: '詳細設定（個別設定・接続・キーボード）',
     presetH: 'プリセット（講演＋質疑）',
     setH: '個別に設定',
     lblTitle: '講演タイトル', lblTalk: '講演（分）', lblQa: '質疑応答（分）',
@@ -247,7 +243,7 @@ const I18N = {
     phaseH: 'Switch phase', toTalk: 'Back to talk', toQa: 'Go to Q&A',
     adjustH: 'Adjust time', m1: '−1 min', s10m: '−10 s', s10p: '+10 s', p1: '+1 min',
     msgH: 'Show message on iPad', send: 'Send', clear: 'Clear',
-    moreH: 'More (presets, durations, bells, connection)',
+    moreH: 'More (settings, connection, keyboard)',
     presetH: 'Presets (talk + Q&A)',
     setH: 'Set individually',
     lblTitle: 'Talk title', lblTalk: 'Talk (min)', lblQa: 'Q&A (min)',
@@ -271,7 +267,7 @@ const I18N = {
     quick: ['5 minutes left', '1 minute left', 'Please wrap up', 'Time is up'],
   },
 };
-const PRESETS = [ [20,10], [30,15], [45,15], [60,0] ]; // [講演分, 質疑分]
+const PRESETS = [ [10,5], [15,5], [25,5], [30,10], [45,15] ]; // [講演分, 質疑分]
 
 let lang = 'ja';
 let lastState = null;
@@ -291,7 +287,6 @@ function applyLang() {
     if (k === 'macBellOff') { el.textContent = macBell ? d.macBellOn : d.macBellOff; el.classList.toggle('on', macBell); return; }
     if (d[k]) el.textContent = d[k];
   });
-  document.getElementById('setTitle').placeholder = d.titlePh;
   document.getElementById('msg').placeholder = d.msgPh;
   document.getElementById('langJa').classList.toggle('active', lang === 'ja');
   document.getElementById('langEn').classList.toggle('active', lang === 'en');
@@ -319,8 +314,7 @@ function buildPresets() {
       document.getElementById('setQa').value = qa;
       cmd({ action: 'set', talkMin: tk, qaMin: qa,
         talkWarnMin: document.getElementById('setTalkWarn').value,
-        qaWarnMin: document.getElementById('setQaWarn').value,
-        title: document.getElementById('setTitle').value });
+        qaWarnMin: document.getElementById('setQaWarn').value });
     };
     wrap.appendChild(b);
   });
@@ -359,8 +353,7 @@ document.querySelectorAll('.setSummary .step').forEach((btn) => {
     document.getElementById('setTalkWarn').value = talkWarn;
     document.getElementById('setQaWarn').value = qaWarn;
     cmd({ action: 'set', talkMin: talk, qaMin: qa,
-      talkWarnMin: talkWarn, qaWarnMin: qaWarn,
-      title: document.getElementById('setTitle').value });
+      talkWarnMin: talkWarn, qaWarnMin: qaWarn });
   };
 });
 
@@ -416,8 +409,10 @@ function setLang(l) { lang = l; applyLang(); cmd({ action: 'setLang', lang: l })
 document.getElementById('langJa').onclick = () => setLang('ja');
 document.getElementById('langEn').onclick = () => setLang('en');
 
-document.getElementById('btnStart').onclick = () => cmd({ action: 'start' });
-document.getElementById('btnPause').onclick = () => cmd({ action: 'pause' });
+document.getElementById('btnPlayPause').onclick = () => {
+  const running = lastState && lastState.phase === 'running';
+  cmd({ action: running ? 'pause' : 'start' });
+};
 document.getElementById('btnReset').onclick = () => cmd({ action: 'reset' });
 document.getElementById('btnToQa').onclick = () => cmd({ action: 'segment', to: 'qa' });
 
@@ -430,7 +425,6 @@ document.getElementById('btnSet').onclick = () => cmd({
   qaMin: document.getElementById('setQa').value,
   talkWarnMin: document.getElementById('setTalkWarn').value,
   qaWarnMin: document.getElementById('setQaWarn').value,
-  title: document.getElementById('setTitle').value,
 });
 
 document.getElementById('btnMsgSend').onclick = () =>
@@ -517,7 +511,7 @@ function renderState(st) {
   const parts = [];
   if (hasQa && st.segment === 'talk') {
     parts.push(scopeTotal
-      ? (en ? 'This part ' : 'このフェーズ ') + fmt(st.remainingSec)
+      ? (en ? 'Talk left ' : '講演のこり ') + fmt(st.remainingSec)
       : (en ? 'Total ' : '全体のこり ') + fmt(totalRem) + (en ? ' (incl. Q&A)' : '（質疑応答こみ）'));
   }
   if (st.phase === 'running') {
@@ -528,13 +522,17 @@ function renderState(st) {
   ct.innerHTML = parts.join('　');
   ct.style.visibility = parts.length ? 'visible' : 'hidden';
 
-  document.getElementById('sub').textContent = st.title || '';
   // 最上部のサマリー（講演／質疑／全体）を現在の設定で更新
   if (Number.isFinite(st.talkSec) && Number.isFinite(st.qaSec))
     renderSummary(st.talkSec / 60, st.qaSec / 60, (st.talkWarnSec || 0) / 60, (st.qaWarnSec || 0) / 60);
 
   // 進行中は時間変更 UI（−／＋・プリセット・個別設定）を非表示（CSS body.running）。
   const running = st.phase === 'running';
+  // 開始/一時停止トグル：実行中は「一時停止」(グレー)、それ以外は「開始/再開」(緑)
+  const pp = document.getElementById('btnPlayPause');
+  pp.textContent = running ? ('⏸ ' + d.pause) : ('▶ ' + d.start);
+  pp.classList.toggle('primary', !running);
+  pp.classList.toggle('muted', running);
   document.body.classList.toggle('running', running);
   document.body.classList.toggle('idle', st.phase === 'idle'); // 待機中は ±調整を隠す
   document.getElementById('setHint').textContent = running ? d.setHintRunning : d.setHint;
