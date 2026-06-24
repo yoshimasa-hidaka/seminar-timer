@@ -266,8 +266,7 @@ const audiowarnTimer = setInterval(() => {
 
 // 起動オーバーレイのタップ＝解錠＋全画面（確認音は控えめに warn 1音）
 document.getElementById('overlay').addEventListener('click', () => {
-  unlockAudio();
-  if (window.Bell) Bell.ring('warn', (lastSt && lastSt.bellSound) || Bell.DEFAULT); // 音が出ることの確認
+  unlockAudio(); // 解錠のみ（確認音は鳴らさない＝接続時に鳴ってうるさいため）
   document.getElementById('overlay').classList.add('hidden');
   acquireWakeLock();
   if (document.documentElement.requestFullscreen) {

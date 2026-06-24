@@ -25,18 +25,23 @@
 
 > ポート 8080 が使用中なら自動で 8081… に切替（ポート番号は起動ログ／操作画面で確認）。
 
-## iPad 単体モード（② オフライン・1ファイル）
+## iPad 単体モード（② PWA・ホーム画面アプリ）
 
-ネットワークを一切使わず、iPad だけで完結させる方法：
+iPad では **PWA（ホーム画面に追加するWebアプリ）として入れる**のが正解。**最初の1回だけ Safari で開いて追加すれば、以降は完全オフラインでホーム画面アイコンから起動**できる（Mac もネットも不要）。
 
-1. リポジトリ同梱の **`seminar-timer-ipad.html`** を iPad に渡す（AirDrop・メール・iCloud Drive など）。
-2. iPad の **ファイル**アプリ等から開く（Safari で表示）。**ホーム画面に追加**すると全画面アプリのように使える。
-3. 画面を**一度タップ**して音声を有効化。下半分の操作部で開始/一時停止・プリセット・予鈴などを設定。
-4. 設定（持ち時間・予鈴・ベル音・プリセット等）は **iPad の中（localStorage）に保存**され、次回も復元。
+> ⚠️ **iPad では「ローカルの .html ファイルを開く」方式は動きません**（ファイルアプリの簡易プレビューになり、JavaScript・音声・保存が無効化されるため）。必ず下の PWA 手順で入れてください。単一ファイル版 `seminar-timer-ipad.html` は Android／Windows／Mac など**ローカル HTML を実行できるブラウザ用**です。
 
-> このファイルは `public/solo.html` ＋ `timer-core.js` ＋ `bell.js` から **`node build-solo.js` で自動生成**した単一ファイル（外部依存ゼロ）。ソースを直したら再生成する。
-> Mac でサーバを起動している場合は、ブラウザで `http://localhost:ポート/solo` でも単体モードを開ける（試用・確認用）。
-> **2台同期版と iPad 単体版は同じ状態機械（`public/timer-core.js`）を共有**するので、タイマー・予鈴・自動移行の挙動は両モードで一致する。
+**入れ方（最初の1回・自宅や研究室の普通の Wi-Fi でOK）**
+
+1. Mac で `start.command`（または `node server.js`）を起動。起動ログ／操作画面に出る iPad 用 URL のホストとポートを確認。
+2. iPad の **Safari** で **`http://<MacのIP>:<ポート>/solo`** を開く（Mac と iPad は同じ Wi-Fi、または USB/テザリング等で一度つながっていればよい）。
+3. Safari の **共有ボタン → 「ホーム画面に追加」**。緑の時計アイコンが追加される。
+4. 以降は **ホーム画面のアイコンから起動**。Service Worker がアプリを丸ごとキャッシュ済みなので、**Mac もネットも無い会場で完全オフライン動作**する。
+
+**使い方**：起動したら画面を**一度タップ**して音声を有効化。下半分の操作部で開始/一時停止・プリセット・予鈴などを設定。設定（持ち時間・予鈴・ベル音・プリセット等）は **iPad 内（localStorage）に保存**され次回も復元。
+
+> **2台同期版（①）と iPad 単体版（②）は同じ状態機械（`public/timer-core.js`）を共有**するので、タイマー・予鈴・自動移行の挙動は両モードで一致する。
+> 単一ファイル版 `seminar-timer-ipad.html` は `public/solo.html`＋`timer-core.js`＋`bell.js` から **`node build-solo.js` で自動生成**（外部依存ゼロ）。アイコンは **`node make-icons.js`** で再生成できる。
 
 ## はじめての人へ（渡すとき・受け取ったとき）
 
@@ -127,11 +132,15 @@
 | `public/timer-core.js` | **状態機械の正本**（tick・コマンド・予鈴・自動移行）。server.js と solo.html が共用＝ロジック二重化なし |
 | `public/control.html` | Mac 操作画面（① 用） |
 | `public/display.html` | iPad 表示画面（① 用） |
-| `public/solo.html` | iPad 単体モード（② 表示＋操作を1ページに） |
+| `public/solo.html` | iPad 単体モード（② 表示＋操作を1ページに・PWA） |
+| `public/manifest.webmanifest` | PWA マニフェスト（ホーム画面追加・アイコン・全画面） |
+| `public/sw.js` | Service Worker（② をオフライン起動させるキャッシュ） |
+| `public/icon-512.png` ほか | PWA／ホーム画面アイコン（`make-icons.js` で生成） |
 | `public/bell.js` | ベル音合成（WebAudio・全画面で共用） |
 | `public/qr.js` | QR コード生成（オフライン・依存なし） |
 | `build-solo.js` | solo.html＋共有JS から単一ファイル版を生成（`node build-solo.js`） |
-| `seminar-timer-ipad.html` | ② の配布用・単一ファイル（自動生成物・iPad に渡す本体） |
+| `make-icons.js` | PWA アイコン PNG を依存ゼロで生成（`node make-icons.js`） |
+| `seminar-timer-ipad.html` | 単一ファイル版（自動生成物・Android/Win/Mac 用。iPad は PWA を使う） |
 | `start.command` | Finder からダブルクリック起動（①） |
 | `config.json` | 実行時に保存される設定（① 用・gitignore・端末ごと） |
 

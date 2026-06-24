@@ -7,6 +7,9 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="講演タイマー">
+<meta name="theme-color" content="#0a7d32">
+<link rel="manifest" href="/manifest.webmanifest">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
 <title>講演タイマー — iPad 単体</title>
 <style>
   :root { --bg: #0a7d32; }
@@ -473,7 +476,7 @@ function goFullscreen() { const el = document.documentElement; if (el.requestFul
 $('btnFs').onclick = goFullscreen;
 document.addEventListener('pointerdown', () => { if (window.Bell) Bell.unlock(); acquireWakeLock(); });
 $('overlay').onclick = () => {
-  if (window.Bell) { Bell.unlock(); Bell.ring('warn', state.bellSound); }
+  if (window.Bell) Bell.unlock(); // 解錠のみ（確認音は鳴らさない＝接続時に鳴ってうるさいため）
   $('overlay').classList.add('hidden'); acquireWakeLock(); goFullscreen();
 };
 
@@ -481,6 +484,11 @@ $('overlay').onclick = () => {
 load();
 applyLang();   // render も呼ぶ
 acquireWakeLock();
+
+// PWA：Service Worker 登録（サーバ配信時のみ成立。file:// 単一ファイルでは失敗するが無害）
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => { navigator.serviceWorker.register('/sw.js').catch(() => {}); });
+}
 </script>
 </body>
 </html>

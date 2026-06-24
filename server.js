@@ -142,7 +142,10 @@ const server = http.createServer((req, res) => {
     const ext = path.extname(full);
     const type = ext === '.html' ? 'text/html; charset=utf-8'
       : ext === '.js' ? 'text/javascript'
-      : ext === '.css' ? 'text/css' : 'application/octet-stream';
+      : ext === '.css' ? 'text/css'
+      : ext === '.png' ? 'image/png'
+      : ext === '.webmanifest' ? 'application/manifest+json'
+      : 'application/octet-stream';
     // no-cache＝更新後に古い HTML/JS が残らないよう毎回再検証させる
     res.writeHead(200, { 'Content-Type': type, 'Cache-Control': 'no-cache' });
     res.end(data);
