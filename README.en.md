@@ -27,19 +27,26 @@ Zero dependencies (Node.js standard library only) and **fully offline** — no `
 
 ## iPad-only mode (② PWA, home-screen app)
 
-On iPad, install it as a **PWA (a web app added to the Home Screen)**. **Open it once in Safari and add it; after that it launches fully offline from the Home Screen icon** (no Mac, no network).
+On iPad, install it as a **PWA (a web app added to the Home Screen)**. **Open it once in Safari and add it; after that it launches fully offline from the Home Screen icon** (no Mac, no network at the venue).
 
-> ⚠️ **Opening a local `.html` file does NOT work on iPad** (the Files app only previews it; JavaScript, audio, and storage are disabled). Use the PWA steps below. The single-file `seminar-timer-ipad.html` is for **browsers that can run local HTML** (Android / Windows / Mac).
+> ⚠️ **Important: offline PWA requires HTTPS** (service workers only run over HTTPS or `localhost`).
+> So **adding to the Home Screen from the Mac server's `http://<IP>:<port>/solo` does NOT make it offline** (over plain HTTP the iPad won't register the service worker, so launching the icon shows "couldn't connect to server"). **Install from HTTPS (GitHub Pages) below instead.**
+> Also, **opening a local `.html` file directly does NOT work on iPad** (the Files app only previews it; JS/audio/storage disabled). The single-file `seminar-timer-ipad.html` is for **browsers that can run local HTML** (Android / Windows / Mac).
 
-**Install (one time, on any normal Wi-Fi such as home or the office)**
+**Publish once (GitHub Pages)**
 
-1. Start the Mac server with `start.command` (or `node server.js`). Note the iPad URL's host and port from the startup log / control screen.
-2. On the iPad, open **`http://<Mac-IP>:<port>/solo`** in **Safari** (the Mac and iPad just need to be reachable once — same Wi-Fi, USB, tethering, etc.).
-3. Tap **Share → Add to Home Screen**. A green clock icon is added.
-4. From then on, **launch from the Home Screen icon**. The service worker has cached the whole app, so it **runs fully offline** at a venue with no Mac and no network.
+1. Push this repo to GitHub (the bundled `.github/workflows/pages.yml` deploys `public/` to Pages).
+2. In GitHub, set **Settings → Pages → Source = "GitHub Actions"**. After a few minutes `https://<user>.github.io/<repo>/` is live.
+
+**Install on the iPad (once, on normal internet)**
+
+3. In **Safari** on the iPad, open **`https://<user>.github.io/<repo>/solo.html`** (opening the root `…/` redirects to solo).
+4. Tap **Share → Add to Home Screen**. A green clock icon is added.
+5. From then on, **launch from the Home Screen icon**. The service worker has cached the whole app, so it **runs fully offline** at a venue with no Mac and no network.
 
 **Use it**: tap once to enable sound, then use the controls in the lower half (start/pause, presets, warnings, …). Settings (durations, warnings, bell sound, presets, …) are **saved on the iPad (localStorage)** and restored next time.
 
+> To just preview it first, open **`http://<IP>:<port>/solo`** in Safari while the Mac server runs (works online; this path does not enable offline).
 > **Both modes share the same state machine (`public/timer-core.js`)**, so the timer, warnings, and auto-advance behave identically.
 > The single file `seminar-timer-ipad.html` is **auto-generated** from `public/solo.html` + `timer-core.js` + `bell.js` via `node build-solo.js`; icons are generated with `node make-icons.js`.
 

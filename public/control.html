@@ -622,8 +622,8 @@ function renderState(st) {
   const c = document.getElementById('clock');
   c.textContent = fmt(bigSec);
   c.classList.remove('warn', 'over');
-  const warnSec = st.segment === 'talk' ? Math.max(st.talkWarnSec || 0, st.talkWarn2Sec || 0) : 0; // 予鈴は講演のみ
-  if (scopeTotal) { if (totalRem <= 0) c.classList.add('over'); }
+  const warnSec = st.segment === 'talk' ? Math.max(st.talkWarnSec || 0, st.talkWarn2Sec || 0) : 60; // 質疑は残り60秒で黄
+  if (scopeTotal && st.segment === 'talk') { if (totalRem <= 0) c.classList.add('over'); }
   else if (st.remainingSec <= 0) c.classList.add('over');
   else if (warnSec > 0 && st.remainingSec <= warnSec) c.classList.add('warn');
 

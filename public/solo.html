@@ -8,8 +8,9 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="講演タイマー">
 <meta name="theme-color" content="#0a7d32">
-<link rel="manifest" href="/manifest.webmanifest">
-<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<!-- パスは相対：Mac サーバ(/solo)でも GitHub Pages(/<repo>/solo.html)でも同じく解決する -->
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
 <title>講演タイマー — iPad 単体</title>
 <style>
   :root { --bg: #0a7d32; }
@@ -294,9 +295,9 @@ function render() {
   $('clock').innerHTML = (over ? '<span class="sign">+</span>' : '') + body;
 
   // 色：緑→黄（予鈴以下・講演のみ）→赤（超過）
-  const warnSec = st.segment === 'talk' ? Math.max(st.talkWarnSec || 0, st.talkWarn2Sec || 0) : 0;
+  const warnSec = st.segment === 'talk' ? Math.max(st.talkWarnSec || 0, st.talkWarn2Sec || 0) : 60; // 質疑は残り60秒で黄
   const disp = $('display'); disp.classList.remove('warn', 'over');
-  if (scopeTotal) { if (totalRem <= 0) disp.classList.add('over'); }
+  if (scopeTotal && st.segment === 'talk') { if (totalRem <= 0) disp.classList.add('over'); }
   else if (st.remainingSec <= 0) disp.classList.add('over');
   else if (warnSec > 0 && st.remainingSec <= warnSec) disp.classList.add('warn');
 
@@ -485,9 +486,11 @@ load();
 applyLang();   // render も呼ぶ
 acquireWakeLock();
 
-// PWA：Service Worker 登録（サーバ配信時のみ成立。file:// 単一ファイルでは失敗するが無害）
+// PWA：Service Worker 登録。HTTPS（または localhost）でのみ成立。
+// 平文 HTTP の LAN IP（Mac サーバ）や file:// では 'serviceWorker' が無いか失敗するが無害（オンライン動作には影響なし）。
+// オフライン化は HTTPS 配信（GitHub Pages 等）で「ホーム画面に追加」した時に効く。相対パスで登録＝サブパス配信でもOK。
 if ('serviceWorker' in navigator) {
-  window.addEventListener('load', () => { navigator.serviceWorker.register('/sw.js').catch(() => {}); });
+  window.addEventListener('load', () => { navigator.serviceWorker.register('sw.js').catch(() => {}); });
 }
 </script>
 </body>

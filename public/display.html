@@ -135,15 +135,14 @@ function render(st) {
   const clock = document.getElementById('clock');
   clock.innerHTML = (over ? '<span class="sign">+</span>' : '') + body;
 
-  // 色分け：緑→黄（予鈴以下）→赤（超過）。phase スコープは現フェーズ予鈴で、total スコープは超過のみ
-  const warnSec = st.segment === 'talk' ? Math.max(st.talkWarnSec || 0, st.talkWarn2Sec || 0) : 0; // 予鈴は講演のみ
+  // 色分け：緑→黄→赤。講演は予鈴以下で黄、質疑は残り60秒以下で黄（質疑はベルなし・色だけ）。
+  const warnSec = st.segment === 'talk' ? Math.max(st.talkWarnSec || 0, st.talkWarn2Sec || 0) : 60;
   document.body.classList.remove('warn', 'over');
-  if (scopeTotal) {
-    if (totalRem <= 0) document.body.classList.add('over');
-  } else if (st.remainingSec <= 0) {
-    document.body.classList.add('over');
-  } else if (warnSec > 0 && st.remainingSec <= warnSec) {
-    document.body.classList.add('warn');
+  if (scopeTotal && st.segment === 'talk') {
+    if (totalRem <= 0) document.body.classList.add('over'); // 全体スコープ(講演中)は全体超過のみ赤
+  } else {
+    if (st.remainingSec <= 0) document.body.classList.add('over');
+    else if (warnSec > 0 && st.remainingSec <= warnSec) document.body.classList.add('warn');
   }
 
   const en = st.lang === 'en';

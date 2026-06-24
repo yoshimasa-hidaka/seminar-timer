@@ -27,19 +27,26 @@
 
 ## iPad 単体モード（② PWA・ホーム画面アプリ）
 
-iPad では **PWA（ホーム画面に追加するWebアプリ）として入れる**のが正解。**最初の1回だけ Safari で開いて追加すれば、以降は完全オフラインでホーム画面アイコンから起動**できる（Mac もネットも不要）。
+iPad では **PWA（ホーム画面に追加するWebアプリ）として入れる**のが正解。**最初の1回だけ Safari で開いて追加すれば、以降は完全オフラインでホーム画面アイコンから起動**できる（会場で Mac もネットも不要）。
 
-> ⚠️ **iPad では「ローカルの .html ファイルを開く」方式は動きません**（ファイルアプリの簡易プレビューになり、JavaScript・音声・保存が無効化されるため）。必ず下の PWA 手順で入れてください。単一ファイル版 `seminar-timer-ipad.html` は Android／Windows／Mac など**ローカル HTML を実行できるブラウザ用**です。
+> ⚠️ **重要：PWA のオフライン化には HTTPS が必要**（Service Worker は HTTPS か `localhost` でしか動かない）。
+> そのため **Mac サーバの `http://<IP>:<ポート>/solo` から「ホーム画面に追加」してもオフラインにはなりません**（平文 HTTP では iPad が Service Worker を登録しないため、アイコンから開くと「サーバに接続できない」になる）。**必ず下の HTTPS（GitHub Pages）から入れてください。**
+> また **ローカルの `.html` ファイルを直接開く方式も iPad では不可**（ファイルアプリの簡易プレビューで JS/音声/保存が無効）。単一ファイル版 `seminar-timer-ipad.html` は Android／Windows／Mac など**ローカル HTML を実行できるブラウザ用**です。
 
-**入れ方（最初の1回・自宅や研究室の普通の Wi-Fi でOK）**
+**配信の準備（GitHub Pages・最初の1回だけ）**
 
-1. Mac で `start.command`（または `node server.js`）を起動。起動ログ／操作画面に出る iPad 用 URL のホストとポートを確認。
-2. iPad の **Safari** で **`http://<MacのIP>:<ポート>/solo`** を開く（Mac と iPad は同じ Wi-Fi、または USB/テザリング等で一度つながっていればよい）。
-3. Safari の **共有ボタン → 「ホーム画面に追加」**。緑の時計アイコンが追加される。
-4. 以降は **ホーム画面のアイコンから起動**。Service Worker がアプリを丸ごとキャッシュ済みなので、**Mac もネットも無い会場で完全オフライン動作**する。
+1. このリポジトリを GitHub に push（同梱の `.github/workflows/pages.yml` が `public/` を Pages へ配信する）。
+2. GitHub の **Settings → Pages → Source を「GitHub Actions」**に設定。数分で `https://<ユーザー名>.github.io/<リポジトリ名>/` が公開される。
+
+**iPad に入れる（普通のネットで1回）**
+
+3. iPad の **Safari** で **`https://<ユーザー名>.github.io/<リポジトリ名>/solo.html`** を開く（ルート `…/` を開いても自動で solo に転送）。
+4. Safari の **共有ボタン → 「ホーム画面に追加」**。緑の時計アイコンが追加される。
+5. 以降は **ホーム画面のアイコンから起動**。Service Worker がアプリを丸ごとキャッシュ済みなので、**Mac もネットも無い会場で完全オフライン動作**する。
 
 **使い方**：起動したら画面を**一度タップ**して音声を有効化。下半分の操作部で開始/一時停止・プリセット・予鈴などを設定。設定（持ち時間・予鈴・ベル音・プリセット等）は **iPad 内（localStorage）に保存**され次回も復元。
 
+> 動作だけ先に見たいなら、Mac サーバ起動中に **iPad の Safari で `http://<IP>:<ポート>/solo`** を開けば（オンラインで）表示・操作を確認できる（※この経路ではオフライン化はされない）。
 > **2台同期版（①）と iPad 単体版（②）は同じ状態機械（`public/timer-core.js`）を共有**するので、タイマー・予鈴・自動移行の挙動は両モードで一致する。
 > 単一ファイル版 `seminar-timer-ipad.html` は `public/solo.html`＋`timer-core.js`＋`bell.js` から **`node build-solo.js` で自動生成**（外部依存ゼロ）。アイコンは **`node make-icons.js`** で再生成できる。
 

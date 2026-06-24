@@ -1,17 +1,16 @@
 {
-  "id": "/solo",
   "name": "研究会 講演タイマー",
   "short_name": "講演タイマー",
   "description": "研究会・セミナーの講演時間タイマー（iPad 単体・オフライン）",
-  "start_url": "/solo",
-  "scope": "/",
+  "start_url": "solo.html",
+  "scope": "./",
   "display": "standalone",
   "background_color": "#0a7d32",
   "theme_color": "#0a7d32",
   "orientation": "any",
   "icons": [
-    { "src": "/icon-192.png", "sizes": "192x192", "type": "image/png" },
-    { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png" },
-    { "src": "/apple-touch-icon.png", "sizes": "180x180", "type": "image/png" }
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "apple-touch-icon.png", "sizes": "180x180", "type": "image/png" }
   ]
 }

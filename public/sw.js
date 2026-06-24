@@ -1,12 +1,14 @@
 // Service Worker — iPad 単体モードを「ホーム画面に追加」後に完全オフラインで動かすためのキャッシュ。
 // 方針：アプリ殻（solo＋共有JS＋アイコン）を install 時にプリキャッシュし、fetch は cache-first。
-// → 初回だけ Safari で Mac の /solo を開いて追加すれば、以降は機内/会場でもネット不要で起動できる。
+// → HTTPS 配信（GitHub Pages 等）で 1 回 Safari で開いて追加すれば、以降は機内/会場でもネット不要で起動できる。
+// ※ Service Worker は HTTPS（または localhost）でのみ動く。平文 HTTP の LAN IP（Mac サーバ）では登録されない。
+// パスは相対（先頭スラッシュなし）＝サブパス配信（/<repo>/）でも root 配信でも sw.js 基準で正しく解決する。
 const CACHE = 'seminar-timer-v1';
 const ASSETS = [
-  '/solo', '/solo.html',
-  '/timer-core.js', '/bell.js',
-  '/manifest.webmanifest',
-  '/icon-192.png', '/icon-512.png', '/apple-touch-icon.png',
+  'index.html', 'solo.html',
+  'timer-core.js', 'bell.js',
+  'manifest.webmanifest',
+  'icon-192.png', 'icon-512.png', 'apple-touch-icon.png',
 ];
 
 self.addEventListener('install', (e) => {
@@ -34,7 +36,7 @@ self.addEventListener('fetch', (e) => {
           caches.open(CACHE).then((c) => c.put(req, copy)).catch(() => {});
         }
         return res;
-      }).catch(() => caches.match('/solo'));
+      }).catch(() => caches.match('solo.html')); // オフラインのナビゲーションはアプリ殻へ
     })
   );
 });
