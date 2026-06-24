@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>講演タイマー — 表示</title>
+<style>
+  :root { --bg: #0a7d32; }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    background: var(--bg);
+    color: #fff;
+    font-family: -apple-system, "Hiragino Sans", system-ui, sans-serif;
+    overflow: hidden;
+    transition: background-color .4s ease;
+    -webkit-user-select: none; user-select: none;
+    display: flex; flex-direction: column;
+    height: 100vh; height: 100dvh;
+  }
+  body.warn { --bg: #c79100; }
+  body.over { --bg: #b3151f; }
+  body.over.blink { --bg: #6e0d14; }
+
+  #title {
+    text-align: center; padding: 3vh 4vw 0;
+    font-size: 5vh; font-weight: 600; opacity: .92;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    min-height: 5vh;
+  }
+  #segment {
+    text-align: center; padding-top: 1vh;
+    font-size: 6vh; font-weight: 800; letter-spacing: .04em;
+  }
+  #segment .badge {
+    display: inline-block; padding: .2em .8em; border-radius: 999px;
+    background: rgba(255,255,255,.18);
+  }
+  #clock {
+    flex: 1; display: flex; align-items: center; justify-content: center;
+    font-variant-numeric: tabular-nums;
+    font-weight: 800; letter-spacing: -.02em;
+    font-size: 38vh; line-height: 1;
+  }
+  #clock .sign { font-size: 22vh; vertical-align: middle; margin-right: .05em; }
+  #total {
+    text-align: center; font-size: 5.6vh; font-weight: 700; opacity: .92;
+    font-variant-numeric: tabular-nums; min-height: 6vh; padding-bottom: .5vh;
+  }
+  #status {
+    text-align: center; font-size: 4vh; opacity: .85; min-height: 5vh;
+  }
+  #endtime {
+    text-align: center; padding-bottom: 1.5vh; font-size: 3.4vh; opacity: .7;
+    font-variant-numeric: tabular-nums; min-height: 4vh;
+  }
+  #message {
+    position: fixed; left: 0; right: 0; bottom: 0;
+    background: rgba(0,0,0,.55); color: #fff;
+    font-size: 7vh; font-weight: 700; text-align: center;
+    padding: 3vh 4vw;
+    transform: translateY(110%); transition: transform .35s ease;
+  }
+  #message.show { transform: translateY(0); }
+
+  #overlay {
+    position: fixed; inset: 0; background: #000;
+    display: flex; align-items: center; justify-content: center; flex-direction: column;
+    gap: 4vh; cursor: pointer; z-index: 10;
+  }
+  #overlay h1 { font-size: 8vh; }
+  #overlay p { font-size: 4vh; opacity: .7; }
+  #overlay.hidden { display: none; }
+</style>
+</head>
+<body>
+  <div id="title"></div>
+  <div id="segment"><span class="badge"></span></div>
+  <div id="clock">--:--</div>
+  <div id="total"></div>
+  <div id="status"></div>
+  <div id="endtime"></div>
+  <div id="message"></div>
+
+  <div id="overlay">
+    <h1 id="ovTitle">タップして開始</h1>
+    <p id="ovHint">音を鳴らすために最初に一度タップしてください</p>
+  </div>
+
+<script>
+let audioCtx = null;
+let lastBellId = null; // null = 基準未取得（初回スナップショットでは鳴らさず同期だけ）
+let blinkOn = false;
+
+function fmt(sec) {
+  const over = sec < 0;
+  const a = Math.abs(sec);
+  const m = Math.floor(a / 60);
+  const s = a % 60;
+  const body = String(m).padStart(2, '0') + ':' + String(s).padStart(2, '0');
+  return { over, body };
+}
+
+function beep(times, freq, dur) {
+  if (!audioCtx) return;
+  let t = audioCtx.currentTime;
+  for (let i = 0; i < times; i++) {
+    const osc = audioCtx.createOscillator();
+    const g = audioCtx.createGain();
+    osc.type = 'sine';
+    osc.frequency.value = freq;
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(0.6, t + 0.02);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    osc.connect(g).connect(audioCtx.destination);
+    osc.start(t);
+    osc.stop(t + dur);
+    t += dur + 0.18;
+  }
+}
+
+function render(st) {
+  const { over, body } = fmt(st.remainingSec);
+  const clock = document.getElementById('clock');
+  clock.innerHTML = (over ? '<span class="sign">+</span>' : '') + body;
+
+  // 色分け：緑（通常）→ 黄（予鈴以下）→ 赤（超過）。予鈴は現フェーズの値を使う
+  const warnSec = st.segment === 'qa' ? st.qaWarnSec : st.talkWarnSec;
+  document.body.classList.remove('warn', 'over');
+  if (st.remainingSec <= 0) {
+    document.body.classList.add('over');
+  } else if (warnSec > 0 && st.remainingSec <= warnSec) {
+    document.body.classList.add('warn');
+  }
+
+  const titleEl = document.getElementById('title');
+  titleEl.textContent = st.title || '';
+  titleEl.style.display = st.title ? '' : 'none'; // タイトル無しなら詰める
+
+  const en = st.lang === 'en';
+  const hasQa = st.qaSec > 0;
+  // バッジはフェーズ名のみ（範囲は下の「全体のこり…（質疑応答こみ）」で伝わる）
+  const segLabel = st.segment === 'qa' ? (en ? 'Q&A' : '質疑応答') : (en ? 'Talk' : '講演');
+  document.querySelector('#segment .badge').textContent = segLabel;
+
+  // 全体のこり（質疑込み）の副表示：講演中だけ出す（質疑中は大きい数字と一致するため隠す）
+  const totalEl = document.getElementById('total');
+  if (hasQa && st.segment === 'talk') {
+    const tot = fmt(st.remainingSec + st.qaSec);
+    totalEl.textContent = (en ? 'Total left ' : '全体のこり ')
+      + (tot.over ? '+' : '') + tot.body + (en ? ' (incl. Q&A)' : '（質疑応答こみ）');
+    totalEl.style.visibility = 'visible';
+  } else {
+    totalEl.style.visibility = 'hidden';
+  }
+  const statusEl = document.getElementById('status');
+  statusEl.textContent =
+    st.phase === 'running' ? (over ? (en ? 'OVERTIME' : '超過') : '') :
+    st.phase === 'paused'  ? (en ? 'Paused' : '一時停止中') :
+    (en ? 'Standby' : '待機中');
+  document.documentElement.lang = en ? 'en' : 'ja';
+  document.getElementById('ovTitle').textContent = en ? 'Tap to start' : 'タップして開始';
+  document.getElementById('ovHint').textContent = en
+    ? 'Tap once to enable the bell sound' : '音を鳴らすために最初に一度タップしてください';
+
+  // 終了予定（壁時計）：実行中だけ表示＝今＋全体残り（質疑込み）
+  const endEl = document.getElementById('endtime');
+  if (st.phase === 'running') {
+    const totalRem = st.segment === 'qa' ? st.remainingSec : st.remainingSec + st.qaSec;
+    const end = new Date(Date.now() + totalRem * 1000);
+    const hm = String(end.getHours()).padStart(2, '0') + ':' + String(end.getMinutes()).padStart(2, '0');
+    endEl.textContent = (en ? 'Ends ~ ' : '終了予定 ') + hm;
+    endEl.style.visibility = 'visible';
+  } else {
+    endEl.style.visibility = 'hidden';
+  }
+
+  const msg = document.getElementById('message');
+  if (st.message) { msg.textContent = st.message; msg.classList.add('show'); }
+  else { msg.classList.remove('show'); }
+
+  // ベル（id が進んだら1回だけ）— 1鈴=予鈴 / 2鈴=講演終了 / 3鈴=全体終了
+  // 初回（ページを開いた/再接続した直後）は基準合わせのみで鳴らさない＝過去のベルの再生を防ぐ
+  if (st.bellEvent) {
+    if (lastBellId === null) {
+      lastBellId = st.bellEvent.id;
+    } else if (st.bellEvent.id > lastBellId) {
+      lastBellId = st.bellEvent.id;
+      if (st.bellEvent.type === 'warn') beep(1, 880, 0.5);
+      else if (st.bellEvent.type === 'talkEnd') beep(2, 660, 0.55);
+      else if (st.bellEvent.type === 'final') beep(3, 523, 0.6);
+    }
+  }
+}
+
+// 超過時の点滅
+setInterval(() => {
+  if (document.body.classList.contains('over')) {
+    blinkOn = !blinkOn;
+    document.body.classList.toggle('blink', blinkOn);
+  } else {
+    document.body.classList.remove('blink');
+  }
+}, 600);
+
+function connect() {
+  const es = new EventSource('/events');
+  es.onmessage = (e) => { try { render(JSON.parse(e.data)); } catch (_) {} };
+  es.onerror = () => { es.close(); setTimeout(connect, 1500); }; // 自動再接続
+}
+connect();
+
+// 画面スリープ防止（Wake Lock）。OS が解放したり非表示→再表示で外れるので都度取り直す。
+let wakeLock = null;
+async function acquireWakeLock() {
+  try {
+    if ('wakeLock' in navigator) wakeLock = await navigator.wakeLock.request('screen');
+  } catch (_) { /* 取得不可な環境は無視 */ }
+}
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible') acquireWakeLock();
+});
+
+// 音声アンロック＆全画面化
+document.getElementById('overlay').addEventListener('click', () => {
+  audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  if (audioCtx.state === 'suspended') audioCtx.resume();
+  beep(1, 660, 0.05); // 無音に近いキックでアンロック
+  document.getElementById('overlay').classList.add('hidden');
+  acquireWakeLock(); // ユーザー操作のタイミングで画面スリープ防止を取得
+  if (document.documentElement.requestFullscreen) {
+    document.documentElement.requestFullscreen().catch(() => {});
+  }
+});
+</script>
+</body>
+</html>
