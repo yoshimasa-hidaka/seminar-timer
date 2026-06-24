@@ -57,13 +57,15 @@
     font-variant-numeric: tabular-nums; min-height: 4vh;
   }
   #message {
-    position: fixed; left: 0; right: 0; bottom: 0;
-    background: rgba(0,0,0,.55); color: #fff;
-    font-size: 7vh; font-weight: 700; text-align: center;
-    padding: 3vh 4vw;
-    transform: translateY(110%); transition: transform .35s ease;
+    position: fixed; left: 0; right: 0; top: 0;
+    background: #fff; color: #111;
+    font-size: 9vh; font-weight: 800; text-align: center;
+    padding: 4vh 4vw;
+    box-shadow: 0 1vh 3vh rgba(0,0,0,.45);
+    transform: translateY(-110%); transition: transform .3s ease;
   }
-  #message.show { transform: translateY(0); }
+  #message.show { transform: translateY(0); animation: msgflash .7s ease-in-out 3; }
+  @keyframes msgflash { 0%, 100% { background: #fff; } 50% { background: #ffd21e; } }
 
   #overlay {
     position: fixed; inset: 0; background: #000;
@@ -88,6 +90,7 @@
     <p id="ovHint">音を鳴らすために最初に一度タップしてください</p>
   </div>
 
+<script src="bell.js"></script>
 <script>
 let audioCtx = null;
 let lastBellId = null; // null = 基準未取得（初回スナップショットでは鳴らさず同期だけ）
@@ -190,8 +193,15 @@ function render(st) {
   }
 
   const msg = document.getElementById('message');
-  if (st.message) { msg.textContent = st.message; msg.classList.add('show'); }
-  else { msg.classList.remove('show'); }
+  if (st.message) {
+    if (msg.textContent !== st.message) {       // 新しいメッセージのたびに点滅を再生
+      msg.textContent = st.message;
+      msg.style.animation = 'none'; void msg.offsetWidth; msg.style.animation = '';
+    }
+    msg.classList.add('show');
+  } else {
+    msg.classList.remove('show');
+  }
 
   // ベル（id が進んだら1回だけ）— 1鈴=予鈴 / 2鈴=講演終了 / 3鈴=全体終了
   // 初回（ページを開いた/再接続した直後）は基準合わせのみで鳴らさない＝過去のベルの再生を防ぐ
@@ -200,9 +210,7 @@ function render(st) {
       lastBellId = st.bellEvent.id;
     } else if (st.bellEvent.id > lastBellId) {
       lastBellId = st.bellEvent.id;
-      if (st.bellEvent.type === 'warn') beep(1, 880, 0.5);
-      else if (st.bellEvent.type === 'talkEnd') beep(2, 660, 0.55);
-      else if (st.bellEvent.type === 'final') beep(3, 523, 0.6);
+      if (window.Bell) Bell.playBell(audioCtx, st.bellEvent.type, st.bellSound);
     }
   }
 }

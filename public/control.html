@@ -68,6 +68,7 @@
   .connbar { text-align: center; font-size: 13px; color: #7d8590; margin: 2px 0 10px; cursor: pointer; }
   .connbar b { color: #8fd0a0; font-weight: 600; font-variant-numeric: tabular-nums; }
   #btnMacBell.on { background: #2e7d32; }
+  #bellSounds button.active { background: #2e7d32; }
   .bellbtn { flex: none; padding: 8px 22px; font-size: 14px; }
   #adjustBlock button { padding: 10px 6px; font-size: 14px; }
   .msgActive { text-align: center; font-size: 14px; min-height: 20px; margin-top: 10px; color: #e0b34a; }
@@ -197,6 +198,9 @@
     </div>
     <div id="setRunNote" class="setSummaryHint" data-i18n="setHintRunning" style="display:none"></div>
 
+    <h2 data-i18n="bellSoundH"></h2>
+    <div class="row" id="bellSounds"></div>
+
     <h2 data-i18n="connH"></h2>
     <div id="conn">
       <div id="connUrl"></div>
@@ -208,6 +212,7 @@
   </details>
 
 <script src="qr.js"></script>
+<script src="bell.js"></script>
 <script>
 const I18N = {
   ja: {
@@ -230,6 +235,7 @@ const I18N = {
     msgShowing: '表示中', msgNone: '',
     sumTalk: '講演', sumQa: '質疑', sumTotal: '全体', minU: '分',
     sumTalkWarn: '講演予鈴', sumQaWarn: '質疑予鈴',
+    bellSoundH: 'ベル音（選ぶと試聴）',
     scopeLabel: 'iPad の大きい表示', scopePhase: '現フェーズ', scopeTotal: '全体',
     setHint: '−／＋ または プリセットで時間を設定',
     setHintRunning: '⏸ 進行中は時間設定できません（一時停止すると変更可）',
@@ -258,6 +264,7 @@ const I18N = {
     msgShowing: 'Showing', msgNone: '',
     sumTalk: 'Talk', sumQa: 'Q&A', sumTotal: 'Total', minU: ' min',
     sumTalkWarn: 'Talk warn', sumQaWarn: 'Q&A warn',
+    bellSoundH: 'Bell sound (tap to preview)',
     scopeLabel: 'iPad big display', scopePhase: 'Current part', scopeTotal: 'Total',
     setHint: '−/＋ or presets to set the time',
     setHintRunning: '⏸ Pause to change durations (disabled while running)',
@@ -299,7 +306,28 @@ function applyLang() {
     b.onclick = () => { document.getElementById('msg').value = text; cmd({ action: 'message', text }); };
     wrap.appendChild(b);
   });
+  buildBellSounds();
   if (lastState) renderState(lastState);
+}
+
+// ベル音の選択ボタン（ビープ/チャイム/ベル）。クリックで設定＋試聴。
+function buildBellSounds() {
+  const wrap = document.getElementById('bellSounds');
+  if (!wrap || !window.Bell) return;
+  const cur = (lastState && lastState.bellSound) || 'beep';
+  wrap.innerHTML = '';
+  Bell.ORDER.forEach((name) => {
+    const b = document.createElement('button');
+    b.className = 'muted' + (name === cur ? ' active' : '');
+    b.dataset.sound = name;
+    b.textContent = (Bell.LABELS[name] && Bell.LABELS[name][lang]) || name;
+    b.onclick = () => {
+      ensureAudio();
+      cmd({ action: 'setBellSound', sound: name });
+      if (window.Bell && audioCtx) Bell.playBell(audioCtx, 'warn', name); // 試聴
+    };
+    wrap.appendChild(b);
+  });
 }
 
 // プリセット（言語非依存・一度だけ生成）。押したら入力欄も埋めてサマリーを更新。
@@ -380,20 +408,6 @@ function fmt(sec) {
 function ensureAudio() {
   if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
   if (audioCtx.state === 'suspended') audioCtx.resume();
-}
-function beep(times, freq, dur) {
-  if (!audioCtx) return;
-  let tm = audioCtx.currentTime;
-  for (let i = 0; i < times; i++) {
-    const osc = audioCtx.createOscillator(), g = audioCtx.createGain();
-    osc.type = 'sine'; osc.frequency.value = freq;
-    g.gain.setValueAtTime(0.0001, tm);
-    g.gain.exponentialRampToValueAtTime(0.5, tm + 0.02);
-    g.gain.exponentialRampToValueAtTime(0.0001, tm + dur);
-    osc.connect(g).connect(audioCtx.destination);
-    osc.start(tm); osc.stop(tm + dur);
-    tm += dur + 0.18;
-  }
 }
 document.getElementById('btnMacBell').onclick = () => {
   macBell = !macBell;
@@ -539,6 +553,7 @@ function renderState(st) {
   document.getElementById('setRunNote').style.display = running ? '' : 'none';
   // iPad に今表示中のメッセージ（古い message の消し忘れ防止）
   document.getElementById('msgActive').textContent = st.message ? (d.msgShowing + ': ' + st.message) : '';
+  document.querySelectorAll('#bellSounds button').forEach((b) => b.classList.toggle('active', b.dataset.sound === st.bellSound));
 }
 
 function connect() {
@@ -560,11 +575,7 @@ function connect() {
         if (lastBellId === null) lastBellId = st.bellEvent.id;
         else if (st.bellEvent.id > lastBellId) {
           lastBellId = st.bellEvent.id;
-          if (macBell && audioCtx) {
-            if (st.bellEvent.type === 'warn') beep(1, 880, 0.5);
-            else if (st.bellEvent.type === 'talkEnd') beep(2, 660, 0.55);
-            else if (st.bellEvent.type === 'final') beep(3, 523, 0.6);
-          }
+          if (macBell && audioCtx && window.Bell) Bell.playBell(audioCtx, st.bellEvent.type, st.bellSound);
         }
       }
       lastState = st;

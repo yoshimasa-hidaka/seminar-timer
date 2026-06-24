@@ -25,6 +25,7 @@ const state = {
   message: '',          // 司会から speaker へのメッセージ
   lang: 'ja',           // 表示言語 'ja' | 'en'（コントロールから切替・両画面で同期）
   clockScope: 'phase',  // iPad の大きい時計 'phase'（現フェーズ）| 'total'（全体=質疑込み）
+  bellSound: 'beep',    // ベル音色 'beep' | 'chime' | 'bell'（両画面で同期）
   bellEvent: { id: 0, type: null }, // id をインクリメントして1回だけ鳴らす
   lanIp: '',            // 起動時に確定（コントロールが iPad 用 URL/QR を作るため）
   port: 0,
@@ -126,6 +127,9 @@ function applyCommand(cmd) {
       break;
     case 'setClockScope':
       state.clockScope = cmd.scope === 'total' ? 'total' : 'phase';
+      break;
+    case 'setBellSound':
+      if (['beep', 'chime', 'bell'].includes(cmd.sound)) state.bellSound = cmd.sound;
       break;
     case 'testBell':
       ringBell(['warn', 'talkEnd', 'final'].includes(cmd.type) ? cmd.type : 'warn');
