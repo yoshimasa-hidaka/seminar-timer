@@ -50,9 +50,9 @@ On iPad, install it as a **PWA (a web app added to the Home Screen)**. **Open it
 > **Both modes share the same state machine (`public/timer-core.js`)**, so the timer, warnings, and auto-advance behave identically.
 > The single file `seminar-timer-ipad.html` is **auto-generated** from `public/solo.html` + `timer-core.js` + `bell.js` via `node build-solo.js`; icons are generated with `node make-icons.js`.
 
-## For first-time users (giving / receiving the app)
+## For first-time users (giving / receiving mode ①, the Mac app)
 
-This app runs on **Node.js**. The recipient only needs to check this once:
+**Mode ① (two-device) runs on Node.js on the Mac** (mode ② — the iPad PWA — needs no Node; see "iPad-only mode"). For ①, the recipient only needs to check this once:
 
 1. **Install Node.js**: if it isn't installed, `start.command` shows a notice (and warns if the version is too old). Install the **LTS** version from [nodejs.org](https://nodejs.org/) and double-click again.
 2. **If macOS says "cannot verify the developer"** (Gatekeeper quarantine on downloaded/emailed/AirDropped files):
@@ -77,13 +77,13 @@ This app runs on **Node.js**. The recipient only needs to check this once:
 ### Bells
 - **Warning bell** a few minutes before the talk ends — up to **two warnings** (e.g. 5 min and 1 min before). The 2nd warning is off by default (0 disables it).
 - **2 bells** at talk end → Q&A. **3 bells** at Q&A end (whole session over) → then a red blinking overtime count.
-- **Color coding**: green (normal) → amber → red + blink (overtime). Amber means **talk = within the warning time / Q&A = last 60 seconds** (Q&A is colour-only, no bell).
+- **Color coding**: green (normal) → amber → red + blink (overtime). Amber means **talk = within the warning time / Q&A = last 60 seconds** (Q&A is color-only, no bell).
 - **Manual bells**: ring 🔔1 / 🔔2 / 🔔3 anytime from the control screen (①) and from the iPad-only app (②).
 
 ### Bell sound (synthesized — no audio files)
 - **Timbre**: Chime / Bell / Beep (previews when selected).
 - **Volume** and **Pitch** sliders.
-- **iPad sound and Mac sound can be toggled independently** (e.g. connect the Mac to the room speakers).
+- **iPad sound and Mac sound can be toggled independently** (mode ①; e.g. connect the Mac to the room speakers — mode ② has a single sound on/off).
 
 ### Messages
 - Flash a message ("5 minutes left", etc.) **large across the top of the iPad** from the Mac (quick phrases + free text).
@@ -101,11 +101,14 @@ This app runs on **Node.js**. The recipient only needs to check this once:
 - Add it to the Home Screen to hide Safari's UI and run full screen.
 
 ### Saved settings
-- Durations, warnings, bell sound/volume/pitch, iPad sound, presets, language, and display scope are **saved to `config.json` and restored on restart** (the running clock is not saved). `config.json` is per-device local state and is not committed to the repo.
+- (**mode ①**) Durations, warnings, bell sound/volume/pitch, iPad sound, presets, language, and display scope are **saved to `config.json` and restored on restart** (the running clock is not saved). `config.json` is per-device local state and is not committed to the repo.
+- (**mode ②**) The iPad app saves the same settings in the iPad's **localStorage** (also per-device; restored next time).
 
 ---
 
-## Offline & networking
+## Offline & networking (mode ①, Mac ↔ iPad)
+
+> This section is about **connecting the Mac and iPad in mode ①**. Mode ② (iPad-only) needs no network except the one-time install.
 
 The app makes **no external requests** (no CDN, no web fonts, no APIs; the QR is generated locally), so it **works with no internet**. All it needs is a local network path between the Mac and the iPad.
 

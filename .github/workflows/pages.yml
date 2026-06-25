@@ -27,6 +27,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: actions/configure-pages@v5
+        with:
+          enablement: true   # Pages 未有効でも自動で有効化（初回 push で一発デプロイ）
       - uses: actions/upload-pages-artifact@v3
         with:
           path: public
