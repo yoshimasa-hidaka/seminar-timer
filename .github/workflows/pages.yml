@@ -1,7 +1,9 @@
 # iPad 単体モード（PWA）を GitHub Pages（HTTPS）に配信するワークフロー。
 # public/ をそのまま Pages サイトとして公開する → https://<user>.github.io/<repo>/solo.html
-# 有効化：リポジトリを push 後、Settings → Pages → Source を「GitHub Actions」にする。
-# （push するまでは何も起きない。PWA は HTTPS でのみオフライン化できるため Pages を使う）
+# 有効化（最初の1回）：Settings → Pages → Source を「GitHub Actions」にする。
+#   ※ Pages 有効化前に push してこの Deploy が走ると、有効化されるまで失敗することがある。
+#     その場合は Pages 有効化後に Actions タブで Deploy を再実行すればよい（以降は push で自動配信）。
+# （PWA は HTTPS でのみオフライン化できるため Pages を使う）
 name: Deploy PWA to GitHub Pages
 
 on:
@@ -26,9 +28,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/configure-pages@v5
-        with:
-          enablement: true   # Pages 未有効でも自動で有効化（初回 push で一発デプロイ）
+      - uses: actions/configure-pages@v5   # Pages は Settings で一度有効化しておくこと（上のコメント参照）
       - uses: actions/upload-pages-artifact@v3
         with:
           path: public

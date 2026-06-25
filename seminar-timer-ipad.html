@@ -771,6 +771,7 @@ $('langEn').onclick = () => setLang('en');
 document.addEventListener('click', (e) => { if (e.target.tagName === 'BUTTON') e.target.blur(); });
 document.addEventListener('keydown', (e) => {
   const tag = (e.target.tagName || '').toLowerCase(); if (tag === 'input' || tag === 'textarea') return;
+  if (window.Bell) Bell.unlock(); // キー操作も音声解錠の gesture にする（デスクトップでキーボードのみ操作した時に無音になるのを防ぐ）
   let handled = true;
   switch (e.code) {
     case 'Space': cmd({ action: state.phase === 'running' ? 'pause' : 'start' }); break;
