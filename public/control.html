@@ -713,6 +713,24 @@ function connect() {
   es.onerror = () => { es.close(); setTimeout(connect, 1500); };
 }
 
+// 操作画面（この Mac）の画面スリープ防止。Mac がスリープするとサーバ(node)が凍結し
+// タイマーが止まるため、起動を caffeinate でくるむのが本命だが、操作画面が見えている間は
+// Wake Lock でも画面を点けたままにして二重に守る。OS が解放したり非表示→再表示で外れるので都度取り直す。
+let wakeLock = null;
+async function acquireWakeLock() {
+  try {
+    if ('wakeLock' in navigator && !wakeLock) {
+      wakeLock = await navigator.wakeLock.request('screen');
+      wakeLock.addEventListener('release', () => { wakeLock = null; });
+    }
+  } catch (_) { /* 取得不可な環境は無視（caffeinate 側で補う） */ }
+}
+acquireWakeLock();
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible') acquireWakeLock();
+});
+document.addEventListener('pointerdown', acquireWakeLock);
+
 applyLang();
 connect();
 </script>

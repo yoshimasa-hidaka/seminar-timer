@@ -28,6 +28,13 @@ if [ "${major:-0}" -lt 14 ] 2>/dev/null; then
   echo ""
 fi
 
-node server.js
+# 使用中は Mac をスリープさせない（スリープすると Node が凍結しタイマーが止まるため）。
+# caffeinate はサーバ(node)が動いている間だけ -d 画面/-i アイドル/-s システム のスリープを抑止し、
+# Ctrl+C で node が終われば自動で解除される（macOS 標準・追加インストール不要）。
+if command -v caffeinate >/dev/null 2>&1; then
+  caffeinate -dis node server.js
+else
+  node server.js
+fi
 echo ""
 read -n 1 -s -r -p "サーバを終了しました。Enter キーで閉じます…"
