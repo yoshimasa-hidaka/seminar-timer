@@ -39,6 +39,16 @@
     }
   }
 
+  // 卓上ベル：研究会のタイムキーパーが鳴らす呼び鈴「チーン」。高い基音（約 2.8 kHz）に、わずかにずれた
+  // 倍音と打撃の短い金属音を重ね、鋭く立ち上がって 1.5 秒ほどで消える。高さは一定（打つたび同じ音）。
+  // 基音を 2 本わずかにずらして重ねると、本物のベルのうなり（シャラッとした揺れ）が出る。
+  function voiceDeskBell(ctx, out, f, t) {
+    const base = 2800 * pitch;
+    partials(ctx, out, base, t, [[1, 1.0, 1.6], [1.004, 0.7, 1.4], [1.48, 0.35, 1.0], [2.09, 0.22, 0.6], [2.76, 0.14, 0.35]], 0.4, 0.002);
+    partials(ctx, out, base, t, [[1.9, 0.5, 0.04], [3.3, 0.3, 0.03]], 0.5, 0.001); // 打撃音（ごく短い）
+  }
+  voiceDeskBell.step = 0.55;
+
   // タイマー：キッチンタイマーのアラーム「ピピピピ」（2.2 kHz 矩形波・4 連）。1鈴＝1 回、2鈴＝2 回、3鈴＝3 回。
   function voiceTimer(ctx, out, f, t) { pulses(ctx, out, t, [2200 * pitch], 0.06, 0.06, 4, 0.22, 'square'); }
   voiceTimer.step = 0.8;
@@ -126,11 +136,12 @@
   voiceBuzzer.step = 0.6;
 
   const VOICES = {
-    timer: voiceTimer, alarm: voiceAlarm, school: voiceSchool, doorbell: voiceDoorbell, chime: voiceChime,
+    deskbell: voiceDeskBell, timer: voiceTimer, alarm: voiceAlarm, school: voiceSchool, doorbell: voiceDoorbell, chime: voiceChime,
     bell: voiceBell, gong: voiceGong, marimba: voiceMarimba, beep: voiceBeep, buzzer: voiceBuzzer,
   };
-  const ORDER = ['timer', 'alarm', 'school', 'doorbell', 'chime', 'bell', 'gong', 'marimba', 'beep', 'buzzer'];
+  const ORDER = ['deskbell', 'timer', 'alarm', 'school', 'doorbell', 'chime', 'bell', 'gong', 'marimba', 'beep', 'buzzer'];
   const LABELS = {
+    deskbell: { ja: '卓上ベル', en: 'Desk bell' },
     timer:    { ja: 'タイマー', en: 'Timer' },
     alarm:    { ja: '目覚まし', en: 'Alarm' },
     school:   { ja: '学校チャイム', en: 'School bell' },
@@ -142,7 +153,7 @@
     beep:     { ja: 'ビープ', en: 'Beep' },
     buzzer:   { ja: 'ブザー', en: 'Buzzer' },
   };
-  const DEFAULT = 'timer';
+  const DEFAULT = 'deskbell'; // 研究会で最も標準的な合図（呼び鈴）
 
   const N = { G4: 392.0, C5: 523.25, D5: 587.33, E5: 659.25, G5: 783.99, A5: 880.0 };
   const SEQ = {
