@@ -21,7 +21,7 @@ if errorlevel 1 (
 rem Warn if Node is very old (14+ recommended)
 for /f "tokens=1 delims=." %%v in ('node --version') do set "major=%%v"
 set "major=%major:v=%"
-if %major% LSS 14 (
+if defined major if %major% LSS 14 (
   echo   [note] Node.js v%major% may be too old. If something fails, install the LTS version from https://nodejs.org/
   echo.
 )

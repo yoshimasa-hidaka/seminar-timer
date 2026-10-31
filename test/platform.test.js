@@ -93,6 +93,11 @@ t('linux: GNOME hotspot on the Wi-Fi card itself (10.42.0.1, no default route)',
   const ifaces = { wlp2s0: [v4('10.42.0.1')], enp0s31f6: [v4('169.254.8.8')] };
   assert.strictEqual(ips(P.rankLanIps(ifaces, null))[0], '10.42.0.1');
 });
+t('mac: no default route, en1 enumerated before en0 → en0 still first (old en0 → en1 order kept)', () => {
+  const ifaces = { lo0: [v4('127.0.0.1', true)], en1: [v4('192.168.1.9')], en0: [v4('192.168.1.5')] };
+  assert.deepStrictEqual(ips(P.rankLanIps(ifaces, null)), ['192.168.1.5', '192.168.1.9']);
+  assert.deepStrictEqual(ips(P.rankLanIps(ifaces, { dev: 'en1' })), ['192.168.1.9', '192.168.1.5'], 'default route still wins');
+});
 t('edge: empty / IPv6-only / malformed entries → no candidates', () => {
   assert.deepStrictEqual(P.rankLanIps({}, null), []);
   assert.deepStrictEqual(P.rankLanIps({ en0: [v6('fe80::1')] }, { dev: 'en0' }), []);

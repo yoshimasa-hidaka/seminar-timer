@@ -56,7 +56,7 @@ function defaultRouteHint(platform = process.platform) {
 // 加点：既定経路の IF/IP（+100）→ 実 NIC らしい名前（+20：Mac en*・Linux eth*/wl*・Windows「Wi-Fi」「イーサネット」）
 //      → ホットスポット（+10：Mac bridge*・Windows モバイルホットスポットの 192.168.137.x）。
 // 減点：仮想アダプタ（−50：Hyper-V/WSL/VirtualBox/VMware/Docker/VPN 等）・リンクローカル 169.254.x（−100：未接続の NIC）。
-// 同点は OS の列挙順（Mac なら en0 → en1 …）。候補は全部返し、1 位を URL/QR に使う（他は操作画面で選び直せる）。
+// 同点は en<N> の番号順 → OS の列挙順。候補は全部返し、1 位を URL/QR に使う（他は操作画面で選び直せる）。
 const REAL_NIC = /^(en\d|eth\d|eno|enp|ens|wl|wlan|wlp|ath)/i;
 const REAL_NIC_WIN = /^(wi-?fi|wlan|ethernet|イーサネット)/i;
 const VIRTUAL = /^(veth|virbr|docker|br-|tun|tap|utun|wg\d|tailscale|zt|lxc|lxd|vmnet|vboxnet|awdl|llw|ppp|anpi)/i;
@@ -79,9 +79,11 @@ function rankLanIps(ifaces, hint) {
       if ((a.family === 'IPv4' || a.family === 4) && !a.internal && IPV4.test(a.address)) cands.push({ name, address: a.address });
     }
   }
+  // 同点の順：Mac の en<N> は番号の小さい順（旧実装の en0 → en1 … を保つ。既定経路が無い時に効く）→ OS の列挙順
+  const enIndex = (name) => { const m = /^en(\d+)$/i.exec(name); return m ? Number(m[1]) : 1e9; };
   return cands
     .map((c, i) => ({ c, s: scoreCandidate(c, hint), i }))
-    .sort((x, y) => y.s - x.s || x.i - y.i)
+    .sort((x, y) => y.s - x.s || enIndex(x.c.name) - enIndex(y.c.name) || x.i - y.i)
     .map((x) => x.c);
 }
 // 戻り値：{ ip, candidates }。候補が無ければ ip は 'localhost'（iPad からは届かないが URL は出す）。
