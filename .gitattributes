@@ -1,0 +1,4 @@
+# Windows のバッチは CRLF、シェルスクリプトは LF で固定（どの OS で checkout しても壊れないように）
+*.cmd text eol=crlf
+*.sh text eol=lf
+*.command text eol=lf
