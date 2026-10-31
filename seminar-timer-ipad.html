@@ -87,6 +87,7 @@
   .field { display: flex; gap: 8px; align-items: center; margin-bottom: 8px; }
   .field label { width: 9em; color: #9aa; font-size: 13px; }
   .field input[type=range] { flex: 1; }
+  .field .val { width: 7em; font-size: 12px; color: #9aa; font-variant-numeric: tabular-nums; text-align: right; }
   #bellSounds button { flex: none; padding: 8px 18px; font-size: 13px; }
   #bellSounds button.active { background: #2e7d32; }
   .presetrow { display: flex; gap: 6px; margin-bottom: 6px; }
@@ -179,8 +180,8 @@
       <summary data-i18n="moreH"></summary>
       <h2 data-i18n="bellSoundH"></h2>
       <div class="row" id="bellSounds"></div>
-      <div class="field"><label data-i18n="volLabel"></label><input type="range" id="volSlider" min="0" max="1" step="0.05" value="0.9"></div>
-      <div class="field"><label data-i18n="pitchLabel"></label><input type="range" id="pitchSlider" min="0.5" max="2" step="0.05" value="1"></div>
+      <div class="field"><label data-i18n="volLabel"></label><input type="range" id="volSlider" min="0" max="1" step="0.05" value="0.9"><span class="val" id="volVal"></span></div>
+      <div class="field"><label data-i18n="pitchLabel"></label><input type="range" id="pitchSlider" min="-12" max="12" step="1" value="0"><span class="val" id="pitchVal"></span></div>
       <h2 data-i18n="presetEditH"></h2>
       <div id="presetList"></div>
       <button class="muted" id="btnSavePreset" style="width:100%;padding:11px" data-i18n="savePreset"></button>
@@ -619,7 +620,7 @@ const I18N = {
     moreH: '詳細設定（ベル音・プリセット編集・キーボード）',
     presetH: 'プリセット（講演＋質疑）',
     presetEditH: 'プリセット編集（✕で削除）', savePreset: '＋ 今の設定で新規追加',
-    bellSoundH: 'ベル音（選ぶと試聴）', volLabel: '音量', pitchLabel: '高さ',
+    bellSoundH: 'ベル音（選ぶと試聴）', volLabel: '音量', pitchLabel: '高さ（ピッチ）', semi: '半音',
     keyH: 'キーボード操作', keyHint: 'スペース＝開始/一時停止　R＝リセット　Q＝質疑へ　T＝講演に戻す　←/→＝±10秒　↑/↓＝±1分',
     sumTalk: '講演', sumQa: '質疑', sumTotal: '全体', minU: '分', sumTalkWarn: '予鈴1', sumTalkWarn2: '予鈴2', warnShort: '予鈴',
     running: '進行中', paused: '一時停止中', standby: '待機中', talk: '講演', qa: '質疑応答', over: '超過',
@@ -634,7 +635,7 @@ const I18N = {
     moreH: 'More (bell sound, edit presets, keyboard)',
     presetH: 'Presets (talk + Q&A)',
     presetEditH: 'Edit presets (✕ to delete)', savePreset: '＋ Add current as new',
-    bellSoundH: 'Bell sound (tap to preview)', volLabel: 'Volume', pitchLabel: 'Pitch',
+    bellSoundH: 'Bell sound (tap to preview)', volLabel: 'Volume', pitchLabel: 'Pitch', semi: 'semitones',
     keyH: 'Keyboard', keyHint: 'Space = start/pause   R = reset   Q = to Q&A   T = back to talk   ←/→ = ±10 s   ↑/↓ = ±1 min',
     sumTalk: 'Talk', sumQa: 'Q&A', sumTotal: 'Total', minU: ' min', sumTalkWarn: 'Warn 1', sumTalkWarn2: 'Warn 2', warnShort: 'warn',
     running: 'Running', paused: 'Paused', standby: 'Standby', talk: 'Talk', qa: 'Q&A', over: 'OVERTIME',
@@ -772,8 +773,8 @@ function render() {
 
   // ベル音ボタン・スライダー
   document.querySelectorAll('#bellSounds button').forEach((b) => b.classList.toggle('active', b.dataset.sound === st.bellSound));
-  const vs = $('volSlider'); if (document.activeElement !== vs) vs.value = st.volume;
-  const ps2 = $('pitchSlider'); if (document.activeElement !== ps2) ps2.value = st.pitch;
+  const vs = $('volSlider'); if (document.activeElement !== vs) { vs.value = st.volume; showVol(st.volume); }
+  const ps2 = $('pitchSlider'); if (document.activeElement !== ps2) { ps2.value = ratioToSemi(st.pitch); showPitch(ratioToSemi(st.pitch)); }
   const bs = $('btnSound'); bs.textContent = soundOn ? d.soundOn : d.soundOff; bs.classList.toggle('on', soundOn);
 
   // プリセットは変化時だけ作り直す
@@ -857,10 +858,17 @@ document.querySelectorAll('.setSummary .step').forEach((btn) => {
 });
 document.querySelectorAll('[data-adj]').forEach((b) => b.onclick = () => cmd({ action: 'adjust', deltaSec: Number(b.dataset.adj) }));
 
-$('volSlider').addEventListener('input', () => { if (window.Bell) Bell.setVolume(Number($('volSlider').value)); });
+// 音量：ドラッグ中はローカル反映＋数値表示、離したら保存＋試聴
+function showVol(v) { $('volVal').textContent = `${Math.round(Number(v) * 100)}%`; }
+$('volSlider').addEventListener('input', () => { showVol($('volSlider').value); if (window.Bell) Bell.setVolume(Number($('volSlider').value)); });
 $('volSlider').addEventListener('change', () => { cmd({ action: 'setVolume', value: Number($('volSlider').value) }); if (window.Bell) { Bell.unlock(); Bell.ring('warn', state.bellSound); } });
-$('pitchSlider').addEventListener('input', () => { if (window.Bell) Bell.setPitch(Number($('pitchSlider').value)); });
-$('pitchSlider').addEventListener('change', () => { cmd({ action: 'setPitch', value: Number($('pitchSlider').value) }); if (window.Bell) { Bell.unlock(); Bell.ring('warn', state.bellSound); } });
+// 高さ（ピッチ）：スライダーは半音（−12〜+12）、保存値は周波数倍率 2^(半音/12)。ダブルタップで標準（0）に戻す。
+function semiToRatio(st) { return Math.pow(2, Number(st) / 12); }
+function ratioToSemi(r) { return Math.max(-12, Math.min(12, Math.round(12 * Math.log2(Number(r) || 1)))); }
+function showPitch(semi) { $('pitchVal').textContent = `${semi > 0 ? '+' : ''}${semi} ${t().semi}（×${semiToRatio(semi).toFixed(2)}）`; }
+$('pitchSlider').addEventListener('input', () => { showPitch(Number($('pitchSlider').value)); if (window.Bell) Bell.setPitch(semiToRatio($('pitchSlider').value)); });
+$('pitchSlider').addEventListener('change', () => { cmd({ action: 'setPitch', value: semiToRatio($('pitchSlider').value) }); if (window.Bell) { Bell.unlock(); Bell.ring('warn', state.bellSound); } });
+$('pitchSlider').addEventListener('dblclick', () => { $('pitchSlider').value = 0; $('pitchSlider').dispatchEvent(new Event('change')); });
 
 $('btnSavePreset').onclick = () => {
   const r = (s) => Math.round((s || 0) / 60);

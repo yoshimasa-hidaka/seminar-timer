@@ -56,6 +56,7 @@
     border: 1px solid #444; background: #111; color: #eee;
   }
   .field { display: flex; gap: 8px; align-items: center; margin-bottom: 8px; }
+  .field .val { width: 7em; font-size: 12px; color: #9aa; font-variant-numeric: tabular-nums; text-align: right; }
   .field label { width: 11em; color: #9aa; font-size: 14px; }
   .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
   .grid4 { display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 8px; }
@@ -211,8 +212,8 @@
 
     <h2 data-i18n="bellSoundH"></h2>
     <div class="row" id="bellSounds"></div>
-    <div class="field"><label data-i18n="volLabel"></label><input type="range" id="volSlider" min="0" max="1" step="0.05" value="0.9"></div>
-    <div class="field"><label data-i18n="pitchLabel"></label><input type="range" id="pitchSlider" min="0.5" max="2" step="0.05" value="1"></div>
+    <div class="field"><label data-i18n="volLabel"></label><input type="range" id="volSlider" min="0" max="1" step="0.05" value="0.9"><span class="val" id="volVal"></span></div>
+    <div class="field"><label data-i18n="pitchLabel"></label><input type="range" id="pitchSlider" min="-12" max="12" step="1" value="0"><span class="val" id="pitchVal"></span></div>
 
     <h2 data-i18n="connH"></h2>
     <div id="conn">
@@ -251,7 +252,7 @@ const I18N = {
     msgShowing: '表示中', msgNone: '',
     sumTalk: '講演', sumQa: '質疑', sumTotal: '全体', minU: '分',
     sumTalkWarn: '予鈴1', sumTalkWarn2: '予鈴2', warnShort: '予鈴',
-    bellSoundH: 'ベル音（選ぶと試聴）', volLabel: '音量', pitchLabel: '高さ',
+    bellSoundH: 'ベル音（選ぶと試聴）', volLabel: '音量', pitchLabel: '高さ（ピッチ）', semi: '半音',
     scopeLabel: 'iPad の大きい表示', scopePhase: '現フェーズ', scopeTotal: '全体',
     setHint: '−／＋ または プリセットで時間を設定',
     setHintRunning: '⏸ 進行中は時間設定できません（一時停止すると変更可）',
@@ -283,7 +284,7 @@ const I18N = {
     msgShowing: 'Showing', msgNone: '',
     sumTalk: 'Talk', sumQa: 'Q&A', sumTotal: 'Total', minU: ' min',
     sumTalkWarn: 'Warn 1', sumTalkWarn2: 'Warn 2', warnShort: 'warn',
-    bellSoundH: 'Bell sound (tap to preview)', volLabel: 'Volume', pitchLabel: 'Pitch',
+    bellSoundH: 'Bell sound (tap to preview)', volLabel: 'Volume', pitchLabel: 'Pitch', semi: 'semitones',
     scopeLabel: 'iPad big display', scopePhase: 'Current part', scopeTotal: 'Total',
     setHint: '−/＋ or presets to set the time',
     setHintRunning: '⏸ Pause to change durations (disabled while running)',
@@ -493,13 +494,23 @@ volSlider.addEventListener('change', () => {
   cmd({ action: 'setVolume', value: Number(volSlider.value) });
   if (window.Bell) { Bell.unlock(); Bell.ring('warn', (lastState && lastState.bellSound) || Bell.DEFAULT); }
 });
-// 音の高さ（ピッチ）：ドラッグ中ローカル反映、離したら保存＋試聴
+// 音の高さ（ピッチ）：スライダーは半音（−12〜+12）、保存値は周波数倍率（2^(半音/12)）。
+// ドラッグ中はローカル即反映＋数値表示、離したら保存＋試聴。
 const pitchSlider = document.getElementById('pitchSlider');
-pitchSlider.addEventListener('input', () => { if (window.Bell) Bell.setPitch(Number(pitchSlider.value)); });
+function semiToRatio(st) { return Math.pow(2, Number(st) / 12); }
+function ratioToSemi(r) { return Math.max(-12, Math.min(12, Math.round(12 * Math.log2(Number(r) || 1)))); }
+function showPitch(semi) {
+  const el = document.getElementById('pitchVal');
+  if (el) el.textContent = `${semi > 0 ? '+' : ''}${semi} ${t().semi}（×${semiToRatio(semi).toFixed(2)}）`;
+}
+function showVol(v) { const el = document.getElementById('volVal'); if (el) el.textContent = `${Math.round(Number(v) * 100)}%`; }
+pitchSlider.addEventListener('input', () => { showPitch(Number(pitchSlider.value)); if (window.Bell) Bell.setPitch(semiToRatio(pitchSlider.value)); });
 pitchSlider.addEventListener('change', () => {
-  cmd({ action: 'setPitch', value: Number(pitchSlider.value) });
+  cmd({ action: 'setPitch', value: semiToRatio(pitchSlider.value) });
   if (window.Bell) { Bell.unlock(); Bell.ring('warn', (lastState && lastState.bellSound) || Bell.DEFAULT); }
 });
+pitchSlider.addEventListener('dblclick', () => { pitchSlider.value = 0; pitchSlider.dispatchEvent(new Event('change')); }); // ダブルクリックで標準に戻す
+volSlider.addEventListener('input', () => showVol(volSlider.value));
 
 // 現在の設定（講演/質疑/予鈴）をプリセットに保存
 function currentPreset() {
@@ -674,9 +685,9 @@ function renderState(st) {
   if (window.Bell && typeof st.volume === 'number') Bell.setVolume(st.volume);
   if (window.Bell && typeof st.pitch === 'number') Bell.setPitch(st.pitch);
   const vs = document.getElementById('volSlider');
-  if (vs && document.activeElement !== vs && typeof st.volume === 'number') vs.value = st.volume;
+  if (vs && document.activeElement !== vs && typeof st.volume === 'number') { vs.value = st.volume; showVol(st.volume); }
   const ps = document.getElementById('pitchSlider');
-  if (ps && document.activeElement !== ps && typeof st.pitch === 'number') ps.value = st.pitch;
+  if (ps && document.activeElement !== ps && typeof st.pitch === 'number') { ps.value = ratioToSemi(st.pitch); showPitch(ratioToSemi(st.pitch)); }
   // 個別入力欄を実値に同期（編集中＝フォーカス中は上書きしない）。即反映なので apply 不要。
   const syncField = (id, sec) => {
     const el = document.getElementById(id);
