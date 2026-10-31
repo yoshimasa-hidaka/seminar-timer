@@ -3,9 +3,9 @@
 // → HTTPS 配信（GitHub Pages 等）で 1 回 Safari で開いて追加すれば、以降は機内/会場でもネット不要で起動できる。
 // ※ Service Worker は HTTPS（または localhost）でのみ動く。平文 HTTP の LAN IP（Mac サーバ）では登録されない。
 // パスは相対（先頭スラッシュなし）＝サブパス配信（/<repo>/）でも root 配信でも sw.js 基準で正しく解決する。
-const CACHE = 'seminar-timer-v1';
+const CACHE = 'seminar-timer-v2'; // display.html 追加で更新
 const ASSETS = [
-  'index.html', 'solo.html',
+  'index.html', 'solo.html', 'display.html',
   'timer-core.js', 'bell.js',
   'manifest.webmanifest',
   'icon-192.png', 'icon-512.png', 'apple-touch-icon.png',

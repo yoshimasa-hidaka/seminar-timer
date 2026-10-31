@@ -53,7 +53,7 @@
   .toggle button.active { background: #2e7d32; }
   #btnSound { padding: 7px 12px; font-size: 13px; border-radius: 8px; background: #2e3238; flex: none; }
   #btnSound.on { background: #2e7d32; }
-  #btnFs { padding: 7px 12px; font-size: 13px; border-radius: 8px; background: #2e3238; flex: none; }
+  #btnFs, #btnDisplayWin { padding: 7px 12px; font-size: 13px; border-radius: 8px; background: #2e3238; flex: none; }
   .bellbtn { flex: none; padding: 7px 11px; font-size: 13px; border-radius: 8px; background: #2e3238; }
   button { border: none; border-radius: 10px; background: #2e3238; color: #eee; cursor: pointer; font-family: inherit; }
   button:active { transform: scale(.97); }
@@ -134,6 +134,7 @@
         <button class="bellbtn" data-bell="talkEnd" title="講演終了（2鈴）">🔔2</button>
         <button class="bellbtn" data-bell="final" title="全体終了（3鈴）">🔔3</button>
         <button id="btnFs">⛶</button>
+        <button id="btnDisplayWin" title="表示ウィンドウを開く（プロジェクタ用）">🖥</button>
       </div>
       <div class="toggle row">
         <button id="langJa" class="active">日本語</button>
@@ -274,6 +275,26 @@ function save() {
 
 function ring(type) { if (soundOn && window.Bell) Bell.ring(type, state.bellSound); }
 
+// ---- 表示専用ウィンドウ（同じ PC の display.html?local）への配信 ----
+// BroadcastChannel で状態を毎秒＋変更時に送る。表示側からの要求（hello）と操作（cmd：大きい数字のタップ）も受ける。
+// サーバ不要＝Pages／オフラインでも動く。単一ファイル版（file://）では display.html が無いのでボタンを隠す。
+const displayBc = ('BroadcastChannel' in window && location.protocol !== 'file:') ? new BroadcastChannel('seminar-timer-local') : null;
+let localBellId = 0;
+function publishState() {
+  if (!displayBc) return;
+  try { displayBc.postMessage({ type: 'state', state: { ...state, bellEvent: { id: localBellId, type: null } } }); } catch (_) {}
+}
+if (displayBc) {
+  displayBc.onmessage = (e) => {
+    const m = e.data || {};
+    if (m.type === 'hello') publishState();
+    else if (m.type === 'cmd' && m.cmd && typeof m.cmd === 'object') cmd(m.cmd);
+  };
+  $('btnDisplayWin').onclick = () => { window.open('display.html?local', 'seminar-timer-display'); };
+} else {
+  $('btnDisplayWin').style.display = 'none';
+}
+
 // ---- コマンド＝コアに委譲（server.js と同一ロジック）----
 function cmd(obj) {
   const r = TimerCore.applyCommand(state, obj);
@@ -302,6 +323,7 @@ function fmt(sec) {
 }
 
 function render() {
+  publishState(); // 表示専用ウィンドウへ（開いていなければ誰も受け取らないだけ）
   const st = state, d = t(), en = lang === 'en';
   if (window.Bell) { Bell.setVolume(st.volume); Bell.setPitch(st.pitch); Bell.setGap(st.bellGap); }
   const totalRem = st.segment === 'qa' ? st.remainingSec : st.remainingSec + st.qaSec;

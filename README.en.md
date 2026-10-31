@@ -32,7 +32,7 @@ If port 8080 is in use, it falls back to 8081, and so on. The actual port is sho
 
 Open the live page [https://yoshimasa-hidaka.github.io/seminar-timer/solo.html](https://yoshimasa-hidaka.github.io/seminar-timer/solo.html) in Safari on the iPad and choose "Add to Home Screen" from the Share menu. From then on, launch it from the Home Screen icon; it runs fully offline, even at a venue.
 
-After it starts, tap the screen once to enable sound. Use the controls in the lower half — start/pause, manual bells (🔔1/🔔2/🔔3), presets, warnings, and so on. While running, the panel shrinks to the control row so the timer is as large as possible; the settings below are reached by scrolling. Settings such as durations, warnings, bell sound, and presets are saved on the iPad (localStorage) and restored next time.
+After it starts, tap the screen once to enable sound. Use the controls in the lower half — start/pause, manual bells (🔔1/🔔2/🔔3), presets, warnings, and so on. In a PC browser, the 🖥 button opens a display-only window: put it full screen on the projector and operate from the original window (no server needed; the two windows sync inside the browser, and sound comes from the control window). While running, the panel shrinks to the control row so the timer is as large as possible; the settings below are reached by scrolling. Settings such as durations, warnings, bell sound, and presets are saved on the iPad (localStorage) and restored next time.
 
 ## For first-time users (giving / receiving mode ①, the Mac app)
 

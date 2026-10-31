@@ -101,12 +101,18 @@
 
 <script src="bell.js"></script>
 <script>
+// ローカル表示モード（display.html?local）：同じ PC の solo.html（操作側）から BroadcastChannel で状態を受け取る。
+// サーバ不要＝GitHub Pages やオフライン PWA でも「操作ウィンドウ＋プロジェクタの表示ウィンドウ」が組める。
+// 音は操作側のウィンドウが鳴らす（同じ PC なので二重に鳴らさない）。
+const LOCAL = /(?:^|[?&])local(?:=|&|$)/.test(location.search);
+const localBc = (LOCAL && 'BroadcastChannel' in window) ? new BroadcastChannel('seminar-timer-local') : null;
 let lastBellId = null; // null = 基準未取得（初回スナップショットでは鳴らさず同期だけ）
 let blinkOn = false;
 let lastSt = null;
 let audioEverOn = false; // 一度でも音声が有効になったか（バナーのラッチ用）
 
 function postCmd(obj) {
+  if (localBc) { localBc.postMessage({ type: 'cmd', cmd: obj }); return; } // ローカル表示：操作側ウィンドウへ
   fetch('/api/cmd', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(obj) }).catch(() => {});
 }
 
@@ -201,7 +207,7 @@ function render(st) {
 
   // ベル（id が進んだら1回だけ）— 1鈴=予鈴 / 2鈴=講演終了 / 3鈴=全体終了
   // 初回（ページを開いた/再接続した直後）は基準合わせのみで鳴らさない＝過去のベルの再生を防ぐ
-  if (st.bellEvent) {
+  if (st.bellEvent && !LOCAL) {
     if (lastBellId === null) {
       lastBellId = st.bellEvent.id;
     } else if (st.bellEvent.id > lastBellId) {
@@ -223,11 +229,22 @@ setInterval(() => {
 }, 600);
 
 function connect() {
+  if (LOCAL) {
+    if (!localBc) { document.getElementById('ovTitle').textContent = 'このブラウザでは表示ウィンドウを使えません'; return; }
+    localBc.onmessage = (e) => { const m = e.data || {}; if (m.type === 'state' && m.state) render(m.state); };
+    localBc.postMessage({ type: 'hello' }); // 操作側に現在の状態を要求
+    return;
+  }
   const es = new EventSource('/events');
   es.onmessage = (e) => { try { render(JSON.parse(e.data)); } catch (_) {} };
   es.onerror = () => { es.close(); setTimeout(connect, 1500); }; // 自動再接続
 }
 connect();
+if (LOCAL) { // ローカル表示は音を出さないので、音声の案内は全画面の案内に差し替える
+  document.getElementById('audiowarn').style.display = 'none';
+  document.getElementById('ovTitle').textContent = 'クリックして全画面表示';
+  document.getElementById('ovHint').textContent = 'このウィンドウをプロジェクタ側の画面に置いてください（音は操作側のウィンドウから鳴ります）';
+}
 
 // 大きい数字をタップ → スコープ（現フェーズ ⇄ 全体）を切替
 document.getElementById('clock').addEventListener('click', () => {
@@ -261,7 +278,7 @@ audiowarn.addEventListener('click', () => {
 });
 const audiowarnTimer = setInterval(() => {
   if (window.Bell && Bell.running()) audioEverOn = true;
-  if (audioEverOn) { audiowarn.style.display = 'none'; clearInterval(audiowarnTimer); }
+  if (audioEverOn || LOCAL) { audiowarn.style.display = 'none'; clearInterval(audiowarnTimer); }
 }, 500);
 
 // 起動オーバーレイのタップ＝解錠＋全画面（確認音は控えめに warn 1音）
