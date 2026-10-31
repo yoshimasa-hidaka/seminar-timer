@@ -1,13 +1,12 @@
 #!/usr/bin/env node
 // 研究会 講演タイマー — 依存パッケージ不要（Node 標準ライブラリのみ）
-// Mac でこのサーバを起動し、iPad は表示ページ、Mac はコントロールページを開く。
+// PC（Mac / Windows / Linux）でこのサーバを起動し、iPad は表示ページ、PC はコントロールページを開く。
 // 同期は SSE（Server-Sent Events）。サーバが毎秒、全クライアントへ現在状態を配信する。
 
 const http = require('http');
 const fs = require('fs');
-const os = require('os');
 const path = require('path');
-const { execSync } = require('child_process');
+const Platform = require('./platform.js'); // OS 依存の部分（LAN IP 推定・ブラウザ起動・OS 別の注意）
 const TimerCore = require('./public/timer-core.js'); // 状態機械の正本（solo.html と共用）
 
 const PORT = process.env.PORT || 8080;
@@ -18,6 +17,7 @@ const PUBLIC = path.join(__dirname, 'public');
 const state = Object.assign(TimerCore.defaultState(), {
   bellEvent: { id: 0, type: null }, // id をインクリメントして1回だけ鳴らす
   lanIp: '',                        // 起動時に確定（コントロールが iPad 用 URL/QR を作るため）
+  lanIps: [],                       // LAN IP の候補（先頭が lanIp。iPad から繋がらない時に操作画面で選び直す）
   port: 0,
 });
 
@@ -152,45 +152,32 @@ const server = http.createServer((req, res) => {
   });
 });
 
-// LAN IP を推定。会場 WiFi が無く Mac をホットスポット化（インターネット共有）した場合は
-// デフォルト経路が無く、IP は bridge100 等に乗るため、全インターフェイスを列挙して拾う。
-// 優先順：デフォルト経路の IF → en*（WiFi/有線）→ bridge*（Mac の共有/ホットスポット）→ 残り全部。
-function detectLanIp() {
-  const ifaces = os.networkInterfaces();
-  const pick = (name) => (ifaces[name] || []).find(a => a.family === 'IPv4' && !a.internal);
-  let dev = '';
-  try { dev = execSync("route -n get default 2>/dev/null | awk '/interface:/{print $2}'").toString().trim(); } catch (_) {}
-  const order = [dev, 'en0', 'en1', 'en2', 'en3', 'en4', 'en5', 'bridge100', 'bridge101', ...Object.keys(ifaces)];
-  const seen = new Set();
-  for (const name of order) {
-    if (!name || seen.has(name)) continue;
-    seen.add(name);
-    const a = pick(name);
-    if (a) return a.address;
-  }
-  return 'localhost';
-}
-
 function onListen() {
   const port = server.address().port;
-  const ip = detectLanIp();
+  // LAN IP の推定は platform.js（OS 別の既定経路＋名前のヒューリスティクス）。候補は全部クライアントへ渡す。
+  const { ip, candidates } = Platform.detectLanIp();
   state.lanIp = ip;
+  state.lanIps = candidates.map((c) => c.address);
   state.port = port;
+  const ctlUrl = `http://localhost:${port}/control`;
   console.log('======================================================');
   console.log('  研究会 講演タイマー — 起動しました');
   console.log('------------------------------------------------------');
-  console.log('  操作画面（この Mac）：ブラウザを自動で開きました');
-  console.log(`                      http://localhost:${port}/control`);
+  console.log(`  操作画面（この PC） ：${ctlUrl}`);
+  console.log('                        ↑ブラウザが自動で開かなければ、この URL を手で開いてください');
   console.log(`  iPad（表示）        ：http://${ip}:${port}/display`);
-  console.log('                      ↑操作画面の上部に QR も出ます');
-  console.log('------------------------------------------------------');
-  console.log('  iPad と Mac は同じ WiFi（または Mac のインターネット共有）に。');
-  console.log('  終了：このウィンドウで Ctrl+C。');
-  console.log('======================================================');
-  // 操作画面を既定ブラウザで自動オープン（macOS）。テスト時は SEMINAR_NO_OPEN=1 で抑止。
-  if (!process.env.SEMINAR_NO_OPEN) {
-    try { execSync(`open "http://localhost:${port}/control"`); } catch (_) {}
+  console.log('                        ↑操作画面の上部に QR も出ます');
+  if (candidates.length > 1) {
+    console.log(`  他の IP の候補      ：${candidates.slice(1).map((c) => `${c.address} (${c.name})`).join(', ')}`);
+    console.log('                        iPad から繋がらない時は、操作画面の QR の下で切り替えられます');
   }
+  console.log('------------------------------------------------------');
+  console.log('  iPad と PC は同じ Wi-Fi（または PC／iPad のテザリング）に。');
+  for (const line of Platform.startupNotes()) console.log(line);
+  console.log('  終了：このウィンドウで Ctrl+C（またはウィンドウを閉じる）。');
+  console.log('======================================================');
+  // 操作画面を既定ブラウザで自動オープン（open / start / xdg-open）。テスト時は SEMINAR_NO_OPEN=1 で抑止。
+  if (!process.env.SEMINAR_NO_OPEN) Platform.openBrowser(ctlUrl);
 }
 
 // ポートが使用中なら自動で次を試す（二重起動・競合でクラッシュさせない）

@@ -74,6 +74,9 @@
   #connUrl { font-variant-numeric: tabular-nums; color: #cdd; font-size: 14px; word-break: break-all; }
   .connbar { text-align: center; font-size: 13px; color: #7d8590; margin: 2px 0 10px; cursor: pointer; }
   .connbar b { color: #8fd0a0; font-weight: 600; font-variant-numeric: tabular-nums; }
+  #connAlt { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 6px; margin-top: 8px; }
+  #connAlt button { flex: none; padding: 5px 10px; font-size: 12px; font-variant-numeric: tabular-nums; }
+  #connAlt button.active { background: #2e7d32; }
   #btnMacBell.on { background: #2e7d32; }
   #bellSounds button.active { background: #2e7d32; }
   .bellbtn { flex: none; padding: 8px 22px; font-size: 14px; }
@@ -218,6 +221,7 @@
     <div id="conn">
       <div id="connUrl"></div>
       <canvas id="qr" width="0" height="0"></canvas>
+      <div id="connAlt" class="hint"></div>
     </div>
 
     <h2 data-i18n="keyH"></h2>
@@ -243,11 +247,12 @@ const I18N = {
     titlePh: '例：山田さんの講演', msgPh: 'speaker に伝える一言',
     applySet: 'この設定を反映（リセット）',
     bellH: 'ベル確認', bellWarn: '1鈴（予鈴）', bellTalkEnd: '2鈴（講演終了）', bellFinal: '3鈴（全体終了）',
-    connH: 'iPad の接続（QR）', keyH: 'キーボード操作（Mac）',
+    connH: 'iPad の接続（QR）', keyH: 'キーボード操作（PC）',
     keyHint: 'スペース＝開始/一時停止　R＝リセット　Q＝質疑へ　T＝講演に戻す　←/→＝±10秒　↑/↓＝±1分',
-    macBellOn: '🔔 Mac音 オン', macBellOff: '🔕 Mac音 オフ',
+    macBellOn: '🔔 PC音 オン', macBellOff: '🔕 PC音 オフ',
     ipadBellOn: '🔔 iPad音 オン', ipadBellOff: '🔕 iPad音 オフ',
     connPrefix: '📱 iPad で開く', connTapHint: '（タップで QR）',
+    connAlt: 'iPad から繋がらない時は別の IP を試す：',
     msgShowing: '表示中', msgNone: '',
     sumTalk: '講演', sumQa: '質疑', sumTotal: '全体', minU: '分',
     sumTalkWarn: '予鈴1', sumTalkWarn2: '予鈴2', warnShort: '予鈴',
@@ -275,11 +280,12 @@ const I18N = {
     titlePh: 'e.g. Dr. Yamada’s talk', msgPh: 'a note to the speaker',
     applySet: 'Apply settings (reset)',
     bellH: 'Bell check', bellWarn: '1 bell (warning)', bellTalkEnd: '2 bells (talk end)', bellFinal: '3 bells (end)',
-    connH: 'iPad connection (QR)', keyH: 'Keyboard (Mac)',
+    connH: 'iPad connection (QR)', keyH: 'Keyboard (PC)',
     keyHint: 'Space = start/pause   R = reset   Q = to Q&A   T = back to talk   ←/→ = ±10 s   ↑/↓ = ±1 min',
-    macBellOn: '🔔 Mac sound ON', macBellOff: '🔕 Mac sound OFF',
+    macBellOn: '🔔 PC sound ON', macBellOff: '🔕 PC sound OFF',
     ipadBellOn: '🔔 iPad sound ON', ipadBellOff: '🔕 iPad sound OFF',
     connPrefix: '📱 Open on iPad', connTapHint: '(tap for QR)',
+    connAlt: 'If the iPad cannot connect, try another IP:',
     msgShowing: 'Showing', msgNone: '',
     sumTalk: 'Talk', sumQa: 'Q&A', sumTotal: 'Total', minU: ' min',
     sumTalkWarn: 'Warn 1', sumTalkWarn2: 'Warn 2', warnShort: 'warn',
@@ -297,7 +303,8 @@ const I18N = {
 let lang = 'ja';
 let lastState = null;
 let qrDrawnFor = '';      // 同じ URL で再描画しない
-let macBell = false;      // F: Mac でもベルを鳴らす
+let lanIpPick = '';       // G: 操作者が選び直した LAN IP（サーバの候補一覧から。既定はサーバの 1 位）
+let macBell = false;      // F: 操作側の PC でもベルを鳴らす
 let lastBellId = null;    // null=基準未取得（初回は鳴らさない）
 let lastPresetsSig = null;  // プリセット配列が変わった時だけ再描画するための署名
 
@@ -475,7 +482,7 @@ function fmt(sec) {
   return (sec < 0 ? '+' : '') + b;
 }
 
-// --- F: Mac での発音（AudioContext は bell.js が一元管理）---
+// --- F: 操作側 PC での発音（AudioContext は bell.js が一元管理）---
 document.getElementById('btnMacBell').onclick = () => {
   macBell = !macBell;
   if (macBell && window.Bell) Bell.unlock();
@@ -589,7 +596,10 @@ document.addEventListener('keydown', (e) => {
 // --- G: 接続バー（常時表示の URL）＋ QR（詳細設定内）---
 function updateConn(st) {
   if (!st.lanIp || !st.port) return;
-  const url = `http://${st.lanIp}:${st.port}/display`;
+  // サーバは LAN IP の候補を順位付きで送る。1 位を既定にし、iPad から繋がらない時は操作者が切り替える。
+  const ips = Array.isArray(st.lanIps) && st.lanIps.length ? st.lanIps : [st.lanIp];
+  const ip = ips.includes(lanIpPick) ? lanIpPick : st.lanIp;
+  const url = `http://${ip}:${st.port}/display`;
   const d = t();
   const bar = document.getElementById('connbar');
   if (bar.dataset.for !== url + lang) {     // URL か言語が変わった時だけ作り直す
@@ -603,6 +613,23 @@ function updateConn(st) {
     qrDrawnFor = url;
     document.getElementById('connUrl').textContent = url;
     if (window.renderQR) { try { window.renderQR(document.getElementById('qr'), url, 6, 4); } catch (_) {} }
+  }
+  // 候補が 2 つ以上ある時だけ、QR の下に IP の選択肢を並べる（Windows の仮想アダプタや PC のテザリング併用時）
+  const alt = document.getElementById('connAlt');
+  const altKey = ips.join(',') + '|' + ip + '|' + lang;
+  if (alt.dataset.for !== altKey) {
+    alt.dataset.for = altKey;
+    alt.innerHTML = '';
+    if (ips.length > 1) {
+      alt.append(document.createTextNode(d.connAlt));
+      for (const cand of ips) {
+        const b = document.createElement('button');
+        b.className = 'muted' + (cand === ip ? ' active' : '');
+        b.textContent = cand;
+        b.onclick = () => { lanIpPick = cand; if (lastState) updateConn(lastState); };
+        alt.appendChild(b);
+      }
+    }
   }
 }
 // 接続バーをタップ → 詳細設定を開いて QR まで表示
@@ -697,7 +724,7 @@ function connect() {
     try {
       const st = JSON.parse(e.data);
       if (st.lang && st.lang !== lang) { lang = st.lang; applyLang(); }
-      // F: Mac でのベル（初回は基準合わせのみ）
+      // F: 操作側 PC でのベル（初回は基準合わせのみ）
       if (st.bellEvent) {
         if (lastBellId === null) lastBellId = st.bellEvent.id;
         else if (st.bellEvent.id > lastBellId) {
@@ -713,9 +740,9 @@ function connect() {
   es.onerror = () => { es.close(); setTimeout(connect, 1500); };
 }
 
-// 操作画面（この Mac）の画面スリープ防止。Mac がスリープするとサーバ(node)が凍結し
-// タイマーが止まるため、起動を caffeinate でくるむのが本命だが、操作画面が見えている間は
-// Wake Lock でも画面を点けたままにして二重に守る。OS が解放したり非表示→再表示で外れるので都度取り直す。
+// 操作画面（この PC）の画面スリープ防止。PC がスリープするとサーバ(node)が凍結し
+// タイマーが止まるため、起動スクリプトで抑止する（Mac: caffeinate / Linux: systemd-inhibit）のが本命だが、
+// Windows にはそれが無いので、操作画面が見えている間は Wake Lock で画面を点けたままにして守る。OS が解放したり非表示→再表示で外れるので都度取り直す。
 let wakeLock = null;
 async function acquireWakeLock() {
   try {
@@ -723,7 +750,7 @@ async function acquireWakeLock() {
       wakeLock = await navigator.wakeLock.request('screen');
       wakeLock.addEventListener('release', () => { wakeLock = null; });
     }
-  } catch (_) { /* 取得不可な環境は無視（caffeinate 側で補う） */ }
+  } catch (_) { /* 取得不可な環境は無視（起動スクリプト側で補う） */ }
 }
 acquireWakeLock();
 document.addEventListener('visibilitychange', () => {
