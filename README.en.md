@@ -63,7 +63,7 @@ Zipping the whole folder is the easiest way to share it (macOS Archive Utility p
 - You can ring the manual bells 🔔1 / 🔔2 / 🔔3 anytime, from the control screen (① Mac) and the iPad-only app (②).
 
 ### Bell sound (synthesized — no audio files)
-- Choose the timbre from Timer (kitchen-timer style electronic beeps, the default) / Chime / Bell / Beep (it previews when you select one). With the Timer sound, 1, 2, and 3 bells become one, two, and three beep bursts.
+- Choose from 10 timbres (each previews when selected): Timer (kitchen-timer beeps, the default), Alarm (two-tone warble), School bell (Westminster chimes), Doorbell, Chime, Bell, Gong, Xylophone, Beep, and Buzzer. For 1, 2, and 3 bells, Timer / Alarm / Gong / Buzzer repeat one, two, or three times, and School bell plays one, two, or three phrases.
 - Adjust volume and pitch with sliders.
 - In ①, the iPad sound and the Mac sound can be toggled independently (useful when the Mac is connected to the room speakers; ② has a single sound on/off).
 

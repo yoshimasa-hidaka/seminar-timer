@@ -15,7 +15,7 @@
 
   // 既定状態（server.js / solo.html 共通の素の状態。bellEvent/lanIp/port 等の環境固有は呼び出し側が付ける）
   // 音色の許可リスト（bell.js の ORDER と同じ並び。server.js と solo.html の設定復元が参照する）
-  const SOUNDS = ['timer', 'chime', 'bell', 'beep'];
+  const SOUNDS = ['timer', 'alarm', 'school', 'doorbell', 'chime', 'bell', 'gong', 'marimba', 'beep', 'buzzer'];
 
   function defaultState() {
     return {
