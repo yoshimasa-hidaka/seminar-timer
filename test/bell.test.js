@@ -79,6 +79,22 @@ t('rests (0) in a melody are skipped, not played', () => {
   assert.strictEqual(oscillators, 8);
 });
 
+t('setGap scales the spacing between strikes and interval() reports it', () => {
+  const span = (type) => { events.length = 0; Bell.ring(type, 'deskbell'); return Math.max(...events.map((e) => e[3])); };
+  Bell.setGap(1); const base = span('final') - span('warn');      // 2 つ分の間隔
+  Bell.setGap(2); const wide = span('final') - span('warn');
+  assert.ok(Math.abs(wide - 2 * base) < 1e-6, `${wide} ≈ 2 × ${base}`);
+  assert.ok(Math.abs(Bell.interval('deskbell') - 0.55 * 2) < 1e-9);
+  Bell.setGap(99); assert.ok(Math.abs(Bell.interval('deskbell') - 0.55 * 3) < 1e-9, 'clamped to 3');
+  Bell.setGap('x'); assert.ok(Math.abs(Bell.interval('deskbell') - 0.55 * 3) < 1e-9, 'non-number ignored');
+  Bell.setGap(1);
+  const st = TimerCore.defaultState();
+  assert.strictEqual(st.bellGap, 1);
+  assert.ok(TimerCore.CONFIG_KEYS.includes('bellGap'), 'persisted');
+  const r = TimerCore.applyCommand(st, { action: 'setBellGap', value: 0.1 });
+  assert.ok(r.ok && r.persist && st.bellGap === 0.5, 'clamped low');
+});
+
 t('unknown voice falls back to the default', () => {
   events.length = 0; oscillators = 0;
   Bell.ring('warn', 'no-such-voice');

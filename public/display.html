@@ -126,6 +126,7 @@ function render(st) {
   lastSt = st;
   if (window.Bell && typeof st.volume === 'number') Bell.setVolume(st.volume);
   if (window.Bell && typeof st.pitch === 'number') Bell.setPitch(st.pitch);
+  if (window.Bell && typeof st.bellGap === 'number') Bell.setGap(st.bellGap);
   // A: 大きい時計のスコープ（現フェーズ / 全体=質疑込み）
   const totalRem = st.segment === 'qa' ? st.remainingSec : st.remainingSec + st.qaSec;
   const scopeTotal = st.clockScope === 'total';

@@ -34,6 +34,7 @@
       ipadBell: true,       // iPad でベルを鳴らすか
       volume: 0.9,          // 0–1
       pitch: 1.0,           // 周波数倍率
+      bellGap: 1.0,         // 2鈴・3鈴の間隔の倍率（0.5–3）
       presets: [[10, 5, 3, 0], [15, 5, 3, 0], [25, 5, 5, 0], [30, 10, 5, 0], [45, 15, 5, 0]],
     };
   }
@@ -80,8 +81,8 @@
   }
 
   // 設定永続化の対象キー（走行中の時計＝phase/segment/remainingSec/message は保存しない）
-  const CONFIG_KEYS = ['talkSec', 'qaSec', 'talkWarnSec', 'talkWarn2Sec', 'bellSound', 'ipadBell', 'volume', 'pitch', 'presets', 'lang', 'clockScope'];
-  const CONFIG_ACTIONS = new Set(['set', 'setBellSound', 'setIpadBell', 'setVolume', 'setPitch', 'setPresets', 'setLang', 'setClockScope']);
+  const CONFIG_KEYS = ['talkSec', 'qaSec', 'talkWarnSec', 'talkWarn2Sec', 'bellSound', 'ipadBell', 'volume', 'pitch', 'bellGap', 'presets', 'lang', 'clockScope'];
+  const CONFIG_ACTIONS = new Set(['set', 'setBellSound', 'setIpadBell', 'setVolume', 'setPitch', 'setBellGap', 'setPresets', 'setLang', 'setClockScope']);
 
   // コマンド適用。ringBell の代わりに鳴らすベルを bells に積み、{ok, bells, persist} を返す。
   function applyCommand(state, cmd) {
@@ -152,6 +153,11 @@
       case 'setPitch': {
         const p = Number(cmd.value);
         if (Number.isFinite(p)) state.pitch = Math.max(0.25, Math.min(4, p));
+        break;
+      }
+      case 'setBellGap': {
+        const g = Number(cmd.value);
+        if (Number.isFinite(g)) state.bellGap = Math.max(0.5, Math.min(3, g));
         break;
       }
       case 'setPresets': {

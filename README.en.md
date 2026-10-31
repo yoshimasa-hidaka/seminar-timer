@@ -65,6 +65,7 @@ Zipping the whole folder is the easiest way to share it (macOS Archive Utility p
 ### Bell sound (synthesized — no audio files)
 - Choose from 11 timbres (each previews when selected): Desk bell (the timekeeper's call bell, the default), Timer (kitchen-timer beeps), Alarm (two-tone warble), School bell (Westminster chimes), Doorbell, Chime, Bell, Gong, Xylophone, Beep, and Buzzer. For 1, 2, and 3 bells, Desk bell / Timer / Alarm / Gong / Buzzer strike one, two, or three times, and School bell plays one, two, or three phrases.
 - Adjust volume and pitch with sliders. Pitch moves in semitones from −12 to +12 (one octave down or up), shows the current value, and double-click (double-tap on iPad) resets it.
+- The gap between strikes for 2 and 3 bells is adjustable too (0.5× to 3× the voice's natural spacing; the readout shows seconds for the selected voice, and releasing previews two bells).
 - In ①, the iPad sound and the Mac sound can be toggled independently (useful when the Mac is connected to the room speakers; ② has a single sound on/off).
 
 ### Messages

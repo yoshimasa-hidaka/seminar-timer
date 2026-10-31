@@ -181,6 +181,16 @@
     const n = Number(p);
     if (Number.isFinite(n)) pitch = Math.max(0.25, Math.min(4, n));
   }
+  let gap = 1.0; // 2鈴・3鈴の打つ間隔の倍率（音色ごとの基準間隔 × gap）
+  function setGap(g) {
+    const n = Number(g);
+    if (Number.isFinite(n)) gap = Math.max(0.5, Math.min(3, n));
+  }
+  // 音色 soundName の、いまの設定での打つ間隔（秒）。UI の表示用。
+  function interval(soundName) {
+    const voice = VOICES[soundName] || VOICES[DEFAULT];
+    return (voice.step || STEP) * gap;
+  }
 
   function getCtx() {
     try {
@@ -209,7 +219,7 @@
     const master = c.createGain();
     master.gain.value = volume;
     master.connect(c.destination);
-    const step = voice.step || STEP; // 音色ごとの間隔（タイマー音は 1 音が長い）
+    const step = (voice.step || STEP) * gap; // 音色ごとの基準間隔 × 利用者の倍率
     let t = c.currentTime + 0.02;
     for (const f of seq) { if (f) voice(c, master, f * pitch, t); t += step; } // 0 は休符。ピッチ倍率を適用
     // 後始末（master ノードのリーク防止）
@@ -229,7 +239,7 @@
     } catch (_) { go(); }
   }
 
-  const api = { VOICES, ORDER, LABELS, SEQ, DEFAULT, unlock, ring, running, setVolume, setPitch };
+  const api = { VOICES, ORDER, LABELS, SEQ, DEFAULT, unlock, ring, running, setVolume, setPitch, setGap, interval };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   if (root) root.Bell = api;
 })(typeof window !== 'undefined' ? window : null);

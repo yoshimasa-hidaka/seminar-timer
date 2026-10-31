@@ -214,6 +214,7 @@
     <div class="row" id="bellSounds"></div>
     <div class="field"><label data-i18n="volLabel"></label><input type="range" id="volSlider" min="0" max="1" step="0.05" value="0.9"><span class="val" id="volVal"></span></div>
     <div class="field"><label data-i18n="pitchLabel"></label><input type="range" id="pitchSlider" min="-12" max="12" step="1" value="0"><span class="val" id="pitchVal"></span></div>
+    <div class="field"><label data-i18n="gapLabel"></label><input type="range" id="gapSlider" min="0.5" max="3" step="0.1" value="1"><span class="val" id="gapVal"></span></div>
 
     <h2 data-i18n="connH"></h2>
     <div id="conn">
@@ -252,7 +253,7 @@ const I18N = {
     msgShowing: '表示中', msgNone: '',
     sumTalk: '講演', sumQa: '質疑', sumTotal: '全体', minU: '分',
     sumTalkWarn: '予鈴1', sumTalkWarn2: '予鈴2', warnShort: '予鈴',
-    bellSoundH: 'ベル音（選ぶと試聴）', volLabel: '音量', pitchLabel: '高さ（ピッチ）', semi: '半音',
+    bellSoundH: 'ベル音（選ぶと試聴）', volLabel: '音量', pitchLabel: '高さ（ピッチ）', semi: '半音', gapLabel: '2鈴・3鈴の間隔', secU: '秒',
     scopeLabel: 'iPad の大きい表示', scopePhase: '現フェーズ', scopeTotal: '全体',
     setHint: '−／＋ または プリセットで時間を設定',
     setHintRunning: '⏸ 進行中は時間設定できません（一時停止すると変更可）',
@@ -284,7 +285,7 @@ const I18N = {
     msgShowing: 'Showing', msgNone: '',
     sumTalk: 'Talk', sumQa: 'Q&A', sumTotal: 'Total', minU: ' min',
     sumTalkWarn: 'Warn 1', sumTalkWarn2: 'Warn 2', warnShort: 'warn',
-    bellSoundH: 'Bell sound (tap to preview)', volLabel: 'Volume', pitchLabel: 'Pitch', semi: 'semitones',
+    bellSoundH: 'Bell sound (tap to preview)', volLabel: 'Volume', pitchLabel: 'Pitch', semi: 'semitones', gapLabel: 'Gap between strikes', secU: 's',
     scopeLabel: 'iPad big display', scopePhase: 'Current part', scopeTotal: 'Total',
     setHint: '−/＋ or presets to set the time',
     setHintRunning: '⏸ Pause to change durations (disabled while running)',
@@ -510,6 +511,19 @@ pitchSlider.addEventListener('change', () => {
   if (window.Bell) { Bell.unlock(); Bell.ring('warn', (lastState && lastState.bellSound) || Bell.DEFAULT); }
 });
 pitchSlider.addEventListener('dblclick', () => { pitchSlider.value = 0; pitchSlider.dispatchEvent(new Event('change')); }); // ダブルクリックで標準に戻す
+// 2鈴・3鈴の間隔：音色ごとの基準間隔に掛ける倍率（0.5〜3）。表示は選択中の音色での実秒。離したら保存＋2鈴で試聴。
+const gapSlider = document.getElementById('gapSlider');
+function showGap(g) {
+  const el = document.getElementById('gapVal');
+  const snd = (lastState && lastState.bellSound) || (window.Bell ? Bell.DEFAULT : 'deskbell');
+  if (el) el.textContent = `×${Number(g).toFixed(1)}（${window.Bell ? Bell.interval(snd).toFixed(2) : '-'} ${t().secU}）`;
+}
+gapSlider.addEventListener('input', () => { if (window.Bell) Bell.setGap(Number(gapSlider.value)); showGap(gapSlider.value); });
+gapSlider.addEventListener('change', () => {
+  cmd({ action: 'setBellGap', value: Number(gapSlider.value) });
+  if (window.Bell) { Bell.unlock(); Bell.ring('talkEnd', (lastState && lastState.bellSound) || Bell.DEFAULT); }
+});
+gapSlider.addEventListener('dblclick', () => { gapSlider.value = 1; gapSlider.dispatchEvent(new Event('change')); });
 volSlider.addEventListener('input', () => showVol(volSlider.value));
 
 // 現在の設定（講演/質疑/予鈴）をプリセットに保存
@@ -688,6 +702,9 @@ function renderState(st) {
   if (vs && document.activeElement !== vs && typeof st.volume === 'number') { vs.value = st.volume; showVol(st.volume); }
   const ps = document.getElementById('pitchSlider');
   if (ps && document.activeElement !== ps && typeof st.pitch === 'number') { ps.value = ratioToSemi(st.pitch); showPitch(ratioToSemi(st.pitch)); }
+  if (window.Bell && typeof st.bellGap === 'number') Bell.setGap(st.bellGap);
+  const gs = document.getElementById('gapSlider');
+  if (gs && document.activeElement !== gs && typeof st.bellGap === 'number') { gs.value = st.bellGap; showGap(st.bellGap); }
   // 個別入力欄を実値に同期（編集中＝フォーカス中は上書きしない）。即反映なので apply 不要。
   const syncField = (id, sec) => {
     const el = document.getElementById(id);

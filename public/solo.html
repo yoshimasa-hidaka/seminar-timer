@@ -179,6 +179,7 @@
       <div class="row" id="bellSounds"></div>
       <div class="field"><label data-i18n="volLabel"></label><input type="range" id="volSlider" min="0" max="1" step="0.05" value="0.9"><span class="val" id="volVal"></span></div>
       <div class="field"><label data-i18n="pitchLabel"></label><input type="range" id="pitchSlider" min="-12" max="12" step="1" value="0"><span class="val" id="pitchVal"></span></div>
+      <div class="field"><label data-i18n="gapLabel"></label><input type="range" id="gapSlider" min="0.5" max="3" step="0.1" value="1"><span class="val" id="gapVal"></span></div>
       <h2 data-i18n="presetEditH"></h2>
       <div id="presetList"></div>
       <button class="muted" id="btnSavePreset" style="width:100%;padding:11px" data-i18n="savePreset"></button>
@@ -204,7 +205,7 @@ const I18N = {
     moreH: '詳細設定（ベル音・プリセット編集・キーボード）',
     presetH: 'プリセット（講演＋質疑）',
     presetEditH: 'プリセット編集（✕で削除）', savePreset: '＋ 今の設定で新規追加',
-    bellSoundH: 'ベル音（選ぶと試聴）', volLabel: '音量', pitchLabel: '高さ（ピッチ）', semi: '半音',
+    bellSoundH: 'ベル音（選ぶと試聴）', volLabel: '音量', pitchLabel: '高さ（ピッチ）', semi: '半音', gapLabel: '2鈴・3鈴の間隔', secU: '秒',
     keyH: 'キーボード操作', keyHint: 'スペース＝開始/一時停止　R＝リセット　Q＝質疑へ　T＝講演に戻す　←/→＝±10秒　↑/↓＝±1分',
     sumTalk: '講演', sumQa: '質疑', sumTotal: '全体', minU: '分', sumTalkWarn: '予鈴1', sumTalkWarn2: '予鈴2', warnShort: '予鈴',
     running: '進行中', paused: '一時停止中', standby: '待機中', talk: '講演', qa: '質疑応答', over: '超過',
@@ -219,7 +220,7 @@ const I18N = {
     moreH: 'More (bell sound, edit presets, keyboard)',
     presetH: 'Presets (talk + Q&A)',
     presetEditH: 'Edit presets (✕ to delete)', savePreset: '＋ Add current as new',
-    bellSoundH: 'Bell sound (tap to preview)', volLabel: 'Volume', pitchLabel: 'Pitch', semi: 'semitones',
+    bellSoundH: 'Bell sound (tap to preview)', volLabel: 'Volume', pitchLabel: 'Pitch', semi: 'semitones', gapLabel: 'Gap between strikes', secU: 's',
     keyH: 'Keyboard', keyHint: 'Space = start/pause   R = reset   Q = to Q&A   T = back to talk   ←/→ = ±10 s   ↑/↓ = ±1 min',
     sumTalk: 'Talk', sumQa: 'Q&A', sumTotal: 'Total', minU: ' min', sumTalkWarn: 'Warn 1', sumTalkWarn2: 'Warn 2', warnShort: 'warn',
     running: 'Running', paused: 'Paused', standby: 'Standby', talk: 'Talk', qa: 'Q&A', over: 'OVERTIME',
@@ -252,6 +253,7 @@ function load() {
   if ((x = sec(raw.talkWarn2Sec)) != null) state.talkWarn2Sec = x;
   if ((x = num(raw.volume, 0, 1)) != null) state.volume = x;
   if ((x = num(raw.pitch, 0.25, 4)) != null) state.pitch = x;
+  if ((x = num(raw.bellGap, 0.5, 3)) != null) state.bellGap = x;
   if (TimerCore.SOUNDS.includes(raw.bellSound)) state.bellSound = raw.bellSound;
   if (['ja', 'en'].includes(raw.lang)) state.lang = raw.lang;
   if (['phase', 'total'].includes(raw.clockScope)) state.clockScope = raw.clockScope;
@@ -298,7 +300,7 @@ function fmt(sec) {
 
 function render() {
   const st = state, d = t(), en = lang === 'en';
-  if (window.Bell) { Bell.setVolume(st.volume); Bell.setPitch(st.pitch); }
+  if (window.Bell) { Bell.setVolume(st.volume); Bell.setPitch(st.pitch); Bell.setGap(st.bellGap); }
   const totalRem = st.segment === 'qa' ? st.remainingSec : st.remainingSec + st.qaSec;
   const scopeTotal = st.clockScope === 'total';
   const bigSec = scopeTotal ? totalRem : st.remainingSec;
@@ -359,6 +361,7 @@ function render() {
   document.querySelectorAll('#bellSounds button').forEach((b) => b.classList.toggle('active', b.dataset.sound === st.bellSound));
   const vs = $('volSlider'); if (document.activeElement !== vs) { vs.value = st.volume; showVol(st.volume); }
   const ps2 = $('pitchSlider'); if (document.activeElement !== ps2) { ps2.value = ratioToSemi(st.pitch); showPitch(ratioToSemi(st.pitch)); }
+  const gs = $('gapSlider'); if (document.activeElement !== gs) { gs.value = st.bellGap; showGap(st.bellGap); }
   const bs = $('btnSound'); bs.textContent = soundOn ? d.soundOn : d.soundOff; bs.classList.toggle('on', soundOn);
 
   // プリセットは変化時だけ作り直す
@@ -453,6 +456,11 @@ function showPitch(semi) { $('pitchVal').textContent = `${semi > 0 ? '+' : ''}${
 $('pitchSlider').addEventListener('input', () => { showPitch(Number($('pitchSlider').value)); if (window.Bell) Bell.setPitch(semiToRatio($('pitchSlider').value)); });
 $('pitchSlider').addEventListener('change', () => { cmd({ action: 'setPitch', value: semiToRatio($('pitchSlider').value) }); if (window.Bell) { Bell.unlock(); Bell.ring('warn', state.bellSound); } });
 $('pitchSlider').addEventListener('dblclick', () => { $('pitchSlider').value = 0; $('pitchSlider').dispatchEvent(new Event('change')); });
+// 2鈴・3鈴の間隔：音色ごとの基準間隔 × 倍率（0.5〜3）。表示は選択中の音色での実秒。離したら保存＋2鈴で試聴。
+function showGap(g) { $('gapVal').textContent = `×${Number(g).toFixed(1)}（${window.Bell ? Bell.interval(state.bellSound).toFixed(2) : '-'} ${t().secU}）`; }
+$('gapSlider').addEventListener('input', () => { if (window.Bell) Bell.setGap(Number($('gapSlider').value)); showGap($('gapSlider').value); });
+$('gapSlider').addEventListener('change', () => { cmd({ action: 'setBellGap', value: Number($('gapSlider').value) }); if (window.Bell) { Bell.unlock(); Bell.ring('talkEnd', state.bellSound); } });
+$('gapSlider').addEventListener('dblclick', () => { $('gapSlider').value = 1; $('gapSlider').dispatchEvent(new Event('change')); });
 
 $('btnSavePreset').onclick = () => {
   const r = (s) => Math.round((s || 0) / 60);
