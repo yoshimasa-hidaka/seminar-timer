@@ -25,6 +25,8 @@ jobs:
           node-version: 'lts/*'
       - name: Unit tests (platform.js)
         run: node test/platform.test.js
+      - name: Unit tests (bell.js voices, fake AudioContext)
+        run: node test/bell.test.js
       - name: Server smoke test (start, serve pages, SSE, command)
         run: node test/server.smoke.js
       - name: Show what this runner detects (for the log)

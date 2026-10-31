@@ -56,13 +56,16 @@
     border: 1px solid #444; background: #111; color: #eee;
   }
   .field { display: flex; gap: 8px; align-items: center; margin-bottom: 8px; }
+  .field .val { width: 7em; font-size: 12px; color: #9aa; font-variant-numeric: tabular-nums; text-align: right; }
   .field label { width: 11em; color: #9aa; font-size: 14px; }
   .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
   .grid4 { display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 8px; }
   .quick button, .preset button { background: #353a44; font-size: 15px; padding: 12px 8px; }
   #presets { grid-template-columns: repeat(5, 1fr); }
-  .presetrow { display: flex; gap: 6px; margin-bottom: 6px; }
-  .presetchip { flex: 1; font-size: 14px; padding: 9px 12px; text-align: left; }
+  .presetrow { display: flex; gap: 6px; margin-bottom: 6px; align-items: center; }
+  .presetrow input { flex: none; width: 4.4em; text-align: center; padding: 8px 4px; font-size: 14px; }
+  .presethead { margin-bottom: 2px; }
+  .presethead span { flex: none; width: 4.4em; text-align: center; font-size: 11px; color: #9aa; }
   .presetbtn { flex: none; padding: 9px 14px; font-size: 13px; }
   .presetdel { flex: none; padding: 9px 14px; font-size: 14px; }
   .muted { background: #2e3238; }
@@ -214,8 +217,9 @@
 
     <h2 data-i18n="bellSoundH"></h2>
     <div class="row" id="bellSounds"></div>
-    <div class="field"><label data-i18n="volLabel"></label><input type="range" id="volSlider" min="0" max="1" step="0.05" value="0.9"></div>
-    <div class="field"><label data-i18n="pitchLabel"></label><input type="range" id="pitchSlider" min="0.5" max="2" step="0.05" value="1"></div>
+    <div class="field"><label data-i18n="volLabel"></label><input type="range" id="volSlider" min="0" max="1" step="0.05" value="0.9"><span class="val" id="volVal"></span></div>
+    <div class="field"><label data-i18n="pitchLabel"></label><input type="range" id="pitchSlider" min="-12" max="12" step="1" value="0"><span class="val" id="pitchVal"></span></div>
+    <div class="field"><label data-i18n="gapLabel"></label><input type="range" id="gapSlider" min="0.5" max="3" step="0.1" value="1"><span class="val" id="gapVal"></span></div>
 
     <h2 data-i18n="connH"></h2>
     <div id="conn">
@@ -239,8 +243,8 @@ const I18N = {
     msgH: 'メッセージを iPad に表示', send: '送信', clear: '消す',
     moreH: '詳細設定（個別設定・接続・キーボード）',
     presetH: 'プリセット（講演＋質疑）',
-    presetEditH: 'プリセット編集（タップで読込→調整→「更新」で上書き／✕で削除）',
-    updateOne: '更新', loadHint: 'タップで現在の設定に読み込む', savePreset: '＋ 今の設定で新規追加',
+    presetEditH: 'プリセット編集（数値を直接書き換え。読込＝現在の設定に反映／✕＝削除）',
+    loadBtn: '読込', loadHint: '現在の設定に読み込む', savePreset: '＋ 今の設定で新規追加',
     setH: '個別に設定',
     lblTitle: '講演タイトル', lblTalk: '講演（分）', lblQa: '質疑応答（分）',
     lblTalkWarn: '予鈴1（講演終了の何分前）', lblTalkWarn2: '予鈴2（講演終了の何分前）',
@@ -256,7 +260,7 @@ const I18N = {
     msgShowing: '表示中', msgNone: '',
     sumTalk: '講演', sumQa: '質疑', sumTotal: '全体', minU: '分',
     sumTalkWarn: '予鈴1', sumTalkWarn2: '予鈴2', warnShort: '予鈴',
-    bellSoundH: 'ベル音（選ぶと試聴）', volLabel: '音量', pitchLabel: '高さ',
+    bellSoundH: 'ベル音（選ぶと試聴）', volLabel: '音量', pitchLabel: '高さ（ピッチ）', semi: '半音', gapLabel: '2鈴・3鈴の間隔', secU: '秒',
     scopeLabel: 'iPad の大きい表示', scopePhase: '現フェーズ', scopeTotal: '全体',
     setHint: '−／＋ または プリセットで時間を設定',
     setHintRunning: '⏸ 進行中は時間設定できません（一時停止すると変更可）',
@@ -272,8 +276,8 @@ const I18N = {
     msgH: 'Show message on iPad', send: 'Send', clear: 'Clear',
     moreH: 'More (settings, connection, keyboard)',
     presetH: 'Presets (talk + Q&A)',
-    presetEditH: 'Edit presets (tap to load → adjust → "Update" / ✕ delete)',
-    updateOne: 'Update', loadHint: 'Tap to load into current settings', savePreset: '＋ Add current as new',
+    presetEditH: 'Edit presets (type the numbers; Load = apply to current settings, ✕ = delete)',
+    loadBtn: 'Load', loadHint: 'Load into current settings', savePreset: '＋ Add current as new',
     setH: 'Set individually',
     lblTitle: 'Talk title', lblTalk: 'Talk (min)', lblQa: 'Q&A (min)',
     lblTalkWarn: 'Warning 1 (min before talk end)', lblTalkWarn2: 'Warning 2 (min before talk end)',
@@ -289,7 +293,7 @@ const I18N = {
     msgShowing: 'Showing', msgNone: '',
     sumTalk: 'Talk', sumQa: 'Q&A', sumTotal: 'Total', minU: ' min',
     sumTalkWarn: 'Warn 1', sumTalkWarn2: 'Warn 2', warnShort: 'warn',
-    bellSoundH: 'Bell sound (tap to preview)', volLabel: 'Volume', pitchLabel: 'Pitch',
+    bellSoundH: 'Bell sound (tap to preview)', volLabel: 'Volume', pitchLabel: 'Pitch', semi: 'semitones', gapLabel: 'Gap between strikes', secU: 's',
     scopeLabel: 'iPad big display', scopePhase: 'Current part', scopeTotal: 'Total',
     setHint: '−/＋ or presets to set the time',
     setHintRunning: '⏸ Pause to change durations (disabled while running)',
@@ -338,7 +342,7 @@ function applyLang() {
 function buildBellSounds() {
   const wrap = document.getElementById('bellSounds');
   if (!wrap || !window.Bell) return;
-  const cur = (lastState && lastState.bellSound) || (window.Bell ? Bell.DEFAULT : 'chime');
+  const cur = (lastState && lastState.bellSound) || (window.Bell ? Bell.DEFAULT : 'deskbell');
   wrap.innerHTML = '';
   Bell.ORDER.forEach((name) => {
     const b = document.createElement('button');
@@ -384,45 +388,50 @@ function loadPreset(tk, qa, tw, tw2) {
   cmd({ action: 'set', talkMin: tk, qaMin: qa, talkWarnMin: tw, talkWarn2Min: tw2 });
 }
 
-// プリセット編集：各行＝[チップ(タップで読込)] [更新(現在値で上書き)] [✕(削除)]
+// プリセット編集：各行の数値（講演・質疑・予鈴1・予鈴2＝分）を直接書き換える。
+// 確定（Enter／欄を離れる）で保存。[読込] で現在の設定に反映、[✕] で削除（確認あり）。
+const PRESET_COLS = ['sumTalk', 'sumQa', 'sumTalkWarn', 'sumTalkWarn2'];
 function renderPresetList() {
   const wrap = document.getElementById('presetList');
   if (!wrap) return;
   const d = t();
   const presets = curPresets();
   wrap.innerHTML = '';
-  presets.forEach(([tk, qa, tw, tw2], i) => {
+  const head = document.createElement('div');
+  head.className = 'presetrow presethead';
+  PRESET_COLS.forEach((k) => { const sp = document.createElement('span'); sp.textContent = d[k]; head.appendChild(sp); });
+  wrap.appendChild(head);
+  presets.forEach((p, i) => {
     const row = document.createElement('div');
     row.className = 'presetrow';
-    const chip = document.createElement('button');
-    chip.className = 'muted presetchip';
-    chip.textContent = `${tk}+${qa}（${d.warnShort} ${tw}/${tw2}）`;
-    chip.title = d.loadHint;
-    chip.onclick = () => loadPreset(tk, qa, tw, tw2);          // 読込（現在の設定に反映）
-    const upd = document.createElement('button');
-    upd.className = 'muted presetbtn';
-    upd.textContent = d.updateOne;
-    upd.onclick = () => {                                       // 現在の設定でこのプリセットを上書き
-      if (!lastState) return;
-      const cur = currentPreset();
-      const msg = lang === 'en'
-        ? `Overwrite "${tk}+${qa}" with current (${cur[0]}+${cur[1]}, warn ${cur[2]}/${cur[3]})?`
-        : `「${tk}+${qa}」を現在の設定（${cur[0]}+${cur[1]}・予鈴${cur[2]}/${cur[3]}）で上書きしますか？`;
-      if (!window.confirm(msg)) return;
-      const next = presets.slice(); next[i] = cur;
-      cmd({ action: 'setPresets', presets: next });
-    };
+    const inputs = PRESET_COLS.map((k, j) => {
+      const inp = document.createElement('input');
+      inp.type = 'number'; inp.inputMode = 'numeric'; inp.min = j === 0 ? 1 : 0; inp.max = 600; inp.step = 1;
+      inp.value = p[j]; inp.title = d[k];
+      inp.onchange = () => {                                   // この行だけ差し替えて保存（値の矯正はコア側）
+        const next = presets.slice();
+        next[i] = inputs.map((el, k2) => Math.max(k2 === 0 ? 1 : 0, Math.round(Number(el.value) || 0)));
+        cmd({ action: 'setPresets', presets: next });
+      };
+      inp.onkeydown = (e) => { if (e.key === 'Enter') inp.blur(); };
+      row.appendChild(inp);
+      return inp;
+    });
+    const load = document.createElement('button');
+    load.className = 'muted presetbtn';
+    load.textContent = d.loadBtn; load.title = d.loadHint;
+    load.onclick = () => loadPreset(...presets[i]);              // 現在の設定に反映
     const del = document.createElement('button');
     del.className = 'muted presetdel';
     del.textContent = '✕';
     del.onclick = () => {
-      const label = `${tk}+${qa}`;
+      const label = `${p[0]}+${p[1]}`;
       const msg = lang === 'en' ? `Delete preset "${label}"?` : `プリセット「${label}」を削除しますか？`;
       if (!window.confirm(msg)) return;
       const next = presets.slice(); next.splice(i, 1);
       cmd({ action: 'setPresets', presets: next });
     };
-    row.appendChild(chip); row.appendChild(upd); row.appendChild(del);
+    row.appendChild(load); row.appendChild(del);
     wrap.appendChild(row);
   });
 }
@@ -500,13 +509,36 @@ volSlider.addEventListener('change', () => {
   cmd({ action: 'setVolume', value: Number(volSlider.value) });
   if (window.Bell) { Bell.unlock(); Bell.ring('warn', (lastState && lastState.bellSound) || Bell.DEFAULT); }
 });
-// 音の高さ（ピッチ）：ドラッグ中ローカル反映、離したら保存＋試聴
+// 音の高さ（ピッチ）：スライダーは半音（−12〜+12）、保存値は周波数倍率（2^(半音/12)）。
+// ドラッグ中はローカル即反映＋数値表示、離したら保存＋試聴。
 const pitchSlider = document.getElementById('pitchSlider');
-pitchSlider.addEventListener('input', () => { if (window.Bell) Bell.setPitch(Number(pitchSlider.value)); });
+function semiToRatio(st) { return Math.pow(2, Number(st) / 12); }
+function ratioToSemi(r) { return Math.max(-12, Math.min(12, Math.round(12 * Math.log2(Number(r) || 1)))); }
+function showPitch(semi) {
+  const el = document.getElementById('pitchVal');
+  if (el) el.textContent = `${semi > 0 ? '+' : ''}${semi} ${t().semi}（×${semiToRatio(semi).toFixed(2)}）`;
+}
+function showVol(v) { const el = document.getElementById('volVal'); if (el) el.textContent = `${Math.round(Number(v) * 100)}%`; }
+pitchSlider.addEventListener('input', () => { showPitch(Number(pitchSlider.value)); if (window.Bell) Bell.setPitch(semiToRatio(pitchSlider.value)); });
 pitchSlider.addEventListener('change', () => {
-  cmd({ action: 'setPitch', value: Number(pitchSlider.value) });
+  cmd({ action: 'setPitch', value: semiToRatio(pitchSlider.value) });
   if (window.Bell) { Bell.unlock(); Bell.ring('warn', (lastState && lastState.bellSound) || Bell.DEFAULT); }
 });
+pitchSlider.addEventListener('dblclick', () => { pitchSlider.value = 0; pitchSlider.dispatchEvent(new Event('change')); }); // ダブルクリックで標準に戻す
+// 2鈴・3鈴の間隔：音色ごとの基準間隔に掛ける倍率（0.5〜3）。表示は選択中の音色での実秒。離したら保存＋2鈴で試聴。
+const gapSlider = document.getElementById('gapSlider');
+function showGap(g) {
+  const el = document.getElementById('gapVal');
+  const snd = (lastState && lastState.bellSound) || (window.Bell ? Bell.DEFAULT : 'deskbell');
+  if (el) el.textContent = `×${Number(g).toFixed(1)}（${window.Bell ? Bell.interval(snd).toFixed(2) : '-'} ${t().secU}）`;
+}
+gapSlider.addEventListener('input', () => { if (window.Bell) Bell.setGap(Number(gapSlider.value)); showGap(gapSlider.value); });
+gapSlider.addEventListener('change', () => {
+  cmd({ action: 'setBellGap', value: Number(gapSlider.value) });
+  if (window.Bell) { Bell.unlock(); Bell.ring('talkEnd', (lastState && lastState.bellSound) || Bell.DEFAULT); }
+});
+gapSlider.addEventListener('dblclick', () => { gapSlider.value = 1; gapSlider.dispatchEvent(new Event('change')); });
+volSlider.addEventListener('input', () => showVol(volSlider.value));
 
 // 現在の設定（講演/質疑/予鈴）をプリセットに保存
 function currentPreset() {
@@ -701,9 +733,12 @@ function renderState(st) {
   if (window.Bell && typeof st.volume === 'number') Bell.setVolume(st.volume);
   if (window.Bell && typeof st.pitch === 'number') Bell.setPitch(st.pitch);
   const vs = document.getElementById('volSlider');
-  if (vs && document.activeElement !== vs && typeof st.volume === 'number') vs.value = st.volume;
+  if (vs && document.activeElement !== vs && typeof st.volume === 'number') { vs.value = st.volume; showVol(st.volume); }
   const ps = document.getElementById('pitchSlider');
-  if (ps && document.activeElement !== ps && typeof st.pitch === 'number') ps.value = st.pitch;
+  if (ps && document.activeElement !== ps && typeof st.pitch === 'number') { ps.value = ratioToSemi(st.pitch); showPitch(ratioToSemi(st.pitch)); }
+  if (window.Bell && typeof st.bellGap === 'number') Bell.setGap(st.bellGap);
+  const gs = document.getElementById('gapSlider');
+  if (gs && document.activeElement !== gs && typeof st.bellGap === 'number') { gs.value = st.bellGap; showGap(st.bellGap); }
   // 個別入力欄を実値に同期（編集中＝フォーカス中は上書きしない）。即反映なので apply 不要。
   const syncField = (id, sec) => {
     const el = document.getElementById(id);

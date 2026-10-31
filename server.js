@@ -42,7 +42,8 @@ function loadConfig() {
     if ((x = sec(data.talkWarn2Sec)) != null) state.talkWarn2Sec = x;
     if ((x = num(data.volume, 0, 1)) != null) state.volume = x;
     if ((x = num(data.pitch, 0.25, 4)) != null) state.pitch = x;
-    if (['chime', 'bell', 'beep'].includes(data.bellSound)) state.bellSound = data.bellSound;
+    if ((x = num(data.bellGap, 0.5, 3)) != null) state.bellGap = x;
+    if (TimerCore.SOUNDS.includes(data.bellSound)) state.bellSound = data.bellSound;
     if (typeof data.ipadBell === 'boolean') state.ipadBell = data.ipadBell;
     if (['ja', 'en'].includes(data.lang)) state.lang = data.lang;
     if (['phase', 'total'].includes(data.clockScope)) state.clockScope = data.clockScope;

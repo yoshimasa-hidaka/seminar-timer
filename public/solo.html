@@ -53,7 +53,7 @@
   .toggle button.active { background: #2e7d32; }
   #btnSound { padding: 7px 12px; font-size: 13px; border-radius: 8px; background: #2e3238; flex: none; }
   #btnSound.on { background: #2e7d32; }
-  #btnFs { padding: 7px 12px; font-size: 13px; border-radius: 8px; background: #2e3238; flex: none; }
+  #btnFs, #btnDisplayWin { padding: 7px 12px; font-size: 13px; border-radius: 8px; background: #2e3238; flex: none; }
   .bellbtn { flex: none; padding: 7px 11px; font-size: 13px; border-radius: 8px; background: #2e3238; }
   button { border: none; border-radius: 10px; background: #2e3238; color: #eee; cursor: pointer; font-family: inherit; }
   button:active { transform: scale(.97); }
@@ -84,10 +84,14 @@
   .field { display: flex; gap: 8px; align-items: center; margin-bottom: 8px; }
   .field label { width: 9em; color: #9aa; font-size: 13px; }
   .field input[type=range] { flex: 1; }
+  .field .val { width: 7em; font-size: 12px; color: #9aa; font-variant-numeric: tabular-nums; text-align: right; }
   #bellSounds button { flex: none; padding: 8px 18px; font-size: 13px; }
   #bellSounds button.active { background: #2e7d32; }
-  .presetrow { display: flex; gap: 6px; margin-bottom: 6px; }
-  .presetchip { flex: 1; font-size: 13px; padding: 9px 10px; text-align: left; background: #2e3238; }
+  .presetrow { display: flex; gap: 6px; margin-bottom: 6px; align-items: center; }
+  .presetrow input { flex: none; width: 4.4em; text-align: center; padding: 8px 4px; font-size: 14px; }
+  .presetbtn { flex: none; padding: 9px 13px; font-size: 13px; background: #2e3238; }
+  .presethead { margin-bottom: 2px; }
+  .presethead span { flex: none; width: 4.4em; text-align: center; font-size: 11px; color: #9aa; }
   .presetdel { flex: none; padding: 9px 13px; font-size: 14px; background: #2e3238; }
   .hint { color: #6b7280; font-size: 11px; line-height: 1.6; }
   /* セッション中（走行・一時停止＝idle 以外）は時間設定 UI を隠す。idle（未開始・トーク間）だけ全展開。
@@ -130,6 +134,7 @@
         <button class="bellbtn" data-bell="talkEnd" title="講演終了（2鈴）">🔔2</button>
         <button class="bellbtn" data-bell="final" title="全体終了（3鈴）">🔔3</button>
         <button id="btnFs">⛶</button>
+        <button id="btnDisplayWin" title="表示ウィンドウを開く（プロジェクタ用）">🖥</button>
       </div>
       <div class="toggle row">
         <button id="langJa" class="active">日本語</button>
@@ -176,8 +181,9 @@
       <summary data-i18n="moreH"></summary>
       <h2 data-i18n="bellSoundH"></h2>
       <div class="row" id="bellSounds"></div>
-      <div class="field"><label data-i18n="volLabel"></label><input type="range" id="volSlider" min="0" max="1" step="0.05" value="0.9"></div>
-      <div class="field"><label data-i18n="pitchLabel"></label><input type="range" id="pitchSlider" min="0.5" max="2" step="0.05" value="1"></div>
+      <div class="field"><label data-i18n="volLabel"></label><input type="range" id="volSlider" min="0" max="1" step="0.05" value="0.9"><span class="val" id="volVal"></span></div>
+      <div class="field"><label data-i18n="pitchLabel"></label><input type="range" id="pitchSlider" min="-12" max="12" step="1" value="0"><span class="val" id="pitchVal"></span></div>
+      <div class="field"><label data-i18n="gapLabel"></label><input type="range" id="gapSlider" min="0.5" max="3" step="0.1" value="1"><span class="val" id="gapVal"></span></div>
       <h2 data-i18n="presetEditH"></h2>
       <div id="presetList"></div>
       <button class="muted" id="btnSavePreset" style="width:100%;padding:11px" data-i18n="savePreset"></button>
@@ -202,8 +208,8 @@ const I18N = {
     msgH: 'メッセージを表示', clear: 'メッセージを消す',
     moreH: '詳細設定（ベル音・プリセット編集・キーボード）',
     presetH: 'プリセット（講演＋質疑）',
-    presetEditH: 'プリセット編集（✕で削除）', savePreset: '＋ 今の設定で新規追加',
-    bellSoundH: 'ベル音（選ぶと試聴）', volLabel: '音量', pitchLabel: '高さ',
+    presetEditH: 'プリセット編集（数値を直接書き換え。読込＝現在の設定に反映／✕＝削除）', loadBtn: '読込', savePreset: '＋ 今の設定で新規追加',
+    bellSoundH: 'ベル音（選ぶと試聴）', volLabel: '音量', pitchLabel: '高さ（ピッチ）', semi: '半音', gapLabel: '2鈴・3鈴の間隔', secU: '秒',
     keyH: 'キーボード操作', keyHint: 'スペース＝開始/一時停止　R＝リセット　Q＝質疑へ　T＝講演に戻す　←/→＝±10秒　↑/↓＝±1分',
     sumTalk: '講演', sumQa: '質疑', sumTotal: '全体', minU: '分', sumTalkWarn: '予鈴1', sumTalkWarn2: '予鈴2', warnShort: '予鈴',
     running: '進行中', paused: '一時停止中', standby: '待機中', talk: '講演', qa: '質疑応答', over: '超過',
@@ -217,8 +223,8 @@ const I18N = {
     msgH: 'Show a message', clear: 'Clear message',
     moreH: 'More (bell sound, edit presets, keyboard)',
     presetH: 'Presets (talk + Q&A)',
-    presetEditH: 'Edit presets (✕ to delete)', savePreset: '＋ Add current as new',
-    bellSoundH: 'Bell sound (tap to preview)', volLabel: 'Volume', pitchLabel: 'Pitch',
+    presetEditH: 'Edit presets (type the numbers; Load = apply to current settings, ✕ = delete)', loadBtn: 'Load', savePreset: '＋ Add current as new',
+    bellSoundH: 'Bell sound (tap to preview)', volLabel: 'Volume', pitchLabel: 'Pitch', semi: 'semitones', gapLabel: 'Gap between strikes', secU: 's',
     keyH: 'Keyboard', keyHint: 'Space = start/pause   R = reset   Q = to Q&A   T = back to talk   ←/→ = ±10 s   ↑/↓ = ±1 min',
     sumTalk: 'Talk', sumQa: 'Q&A', sumTotal: 'Total', minU: ' min', sumTalkWarn: 'Warn 1', sumTalkWarn2: 'Warn 2', warnShort: 'warn',
     running: 'Running', paused: 'Paused', standby: 'Standby', talk: 'Talk', qa: 'Q&A', over: 'OVERTIME',
@@ -251,7 +257,8 @@ function load() {
   if ((x = sec(raw.talkWarn2Sec)) != null) state.talkWarn2Sec = x;
   if ((x = num(raw.volume, 0, 1)) != null) state.volume = x;
   if ((x = num(raw.pitch, 0.25, 4)) != null) state.pitch = x;
-  if (['chime', 'bell', 'beep'].includes(raw.bellSound)) state.bellSound = raw.bellSound;
+  if ((x = num(raw.bellGap, 0.5, 3)) != null) state.bellGap = x;
+  if (TimerCore.SOUNDS.includes(raw.bellSound)) state.bellSound = raw.bellSound;
   if (['ja', 'en'].includes(raw.lang)) state.lang = raw.lang;
   if (['phase', 'total'].includes(raw.clockScope)) state.clockScope = raw.clockScope;
   const ps = TimerCore.normalizePresets(raw.presets);
@@ -267,6 +274,26 @@ function save() {
 }
 
 function ring(type) { if (soundOn && window.Bell) Bell.ring(type, state.bellSound); }
+
+// ---- 表示専用ウィンドウ（同じ PC の display.html?local）への配信 ----
+// BroadcastChannel で状態を毎秒＋変更時に送る。表示側からの要求（hello）と操作（cmd：大きい数字のタップ）も受ける。
+// サーバ不要＝Pages／オフラインでも動く。単一ファイル版（file://）では display.html が無いのでボタンを隠す。
+const displayBc = ('BroadcastChannel' in window && location.protocol !== 'file:') ? new BroadcastChannel('seminar-timer-local') : null;
+let localBellId = 0;
+function publishState() {
+  if (!displayBc) return;
+  try { displayBc.postMessage({ type: 'state', state: { ...state, bellEvent: { id: localBellId, type: null } } }); } catch (_) {}
+}
+if (displayBc) {
+  displayBc.onmessage = (e) => {
+    const m = e.data || {};
+    if (m.type === 'hello') publishState();
+    else if (m.type === 'cmd' && m.cmd && typeof m.cmd === 'object') cmd(m.cmd);
+  };
+  $('btnDisplayWin').onclick = () => { window.open('display.html?local', 'seminar-timer-display'); };
+} else {
+  $('btnDisplayWin').style.display = 'none';
+}
 
 // ---- コマンド＝コアに委譲（server.js と同一ロジック）----
 function cmd(obj) {
@@ -296,8 +323,9 @@ function fmt(sec) {
 }
 
 function render() {
+  publishState(); // 表示専用ウィンドウへ（開いていなければ誰も受け取らないだけ）
   const st = state, d = t(), en = lang === 'en';
-  if (window.Bell) { Bell.setVolume(st.volume); Bell.setPitch(st.pitch); }
+  if (window.Bell) { Bell.setVolume(st.volume); Bell.setPitch(st.pitch); Bell.setGap(st.bellGap); }
   const totalRem = st.segment === 'qa' ? st.remainingSec : st.remainingSec + st.qaSec;
   const scopeTotal = st.clockScope === 'total';
   const bigSec = scopeTotal ? totalRem : st.remainingSec;
@@ -356,8 +384,9 @@ function render() {
 
   // ベル音ボタン・スライダー
   document.querySelectorAll('#bellSounds button').forEach((b) => b.classList.toggle('active', b.dataset.sound === st.bellSound));
-  const vs = $('volSlider'); if (document.activeElement !== vs) vs.value = st.volume;
-  const ps2 = $('pitchSlider'); if (document.activeElement !== ps2) ps2.value = st.pitch;
+  const vs = $('volSlider'); if (document.activeElement !== vs) { vs.value = st.volume; showVol(st.volume); }
+  const ps2 = $('pitchSlider'); if (document.activeElement !== ps2) { ps2.value = ratioToSemi(st.pitch); showPitch(ratioToSemi(st.pitch)); }
+  const gs = $('gapSlider'); if (document.activeElement !== gs) { gs.value = st.bellGap; showGap(st.bellGap); }
   const bs = $('btnSound'); bs.textContent = soundOn ? d.soundOn : d.soundOff; bs.classList.toggle('on', soundOn);
 
   // プリセットは変化時だけ作り直す
@@ -400,21 +429,36 @@ function buildPresets() {
     wrap.appendChild(b);
   });
 }
+// プリセット編集：各行の数値（講演・質疑・予鈴1・予鈴2＝分）を直接書き換える。確定で保存。[読込] で反映、[✕] で削除。
+const PRESET_COLS = ['sumTalk', 'sumQa', 'sumTalkWarn', 'sumTalkWarn2'];
 function renderPresetList() {
   const wrap = $('presetList'); const d = t(); wrap.innerHTML = '';
   const presets = state.presets || [];
-  presets.forEach(([tk, qa, tw, tw2], i) => {
+  const head = document.createElement('div'); head.className = 'presetrow presethead';
+  PRESET_COLS.forEach((k) => { const sp = document.createElement('span'); sp.textContent = d[k]; head.appendChild(sp); });
+  wrap.appendChild(head);
+  presets.forEach((p, i) => {
     const row = document.createElement('div'); row.className = 'presetrow';
-    const chip = document.createElement('button'); chip.className = 'presetchip';
-    chip.textContent = `${tk}+${qa}（${d.warnShort} ${tw}/${tw2}）`;
-    chip.onclick = () => cmd({ action: 'set', talkMin: tk, qaMin: qa, talkWarnMin: tw, talkWarn2Min: tw2 });
+    const inputs = PRESET_COLS.map((k, j) => {
+      const inp = document.createElement('input');
+      inp.type = 'number'; inp.inputMode = 'numeric'; inp.min = j === 0 ? 1 : 0; inp.max = 600; inp.step = 1; inp.value = p[j]; inp.title = d[k];
+      inp.onchange = () => {
+        const next = presets.slice();
+        next[i] = inputs.map((el, k2) => Math.max(k2 === 0 ? 1 : 0, Math.round(Number(el.value) || 0)));
+        cmd({ action: 'setPresets', presets: next });
+      };
+      inp.onkeydown = (e) => { if (e.key === 'Enter') inp.blur(); };
+      row.appendChild(inp); return inp;
+    });
+    const load = document.createElement('button'); load.className = 'muted presetbtn'; load.textContent = d.loadBtn;
+    load.onclick = () => cmd({ action: 'set', talkMin: p[0], qaMin: p[1], talkWarnMin: p[2], talkWarn2Min: p[3] });
     const del = document.createElement('button'); del.className = 'presetdel'; del.textContent = '✕';
     del.onclick = () => {
-      const label = `${tk}+${qa}`;
+      const label = `${p[0]}+${p[1]}`;
       if (!window.confirm(lang === 'en' ? `Delete preset "${label}"?` : `プリセット「${label}」を削除しますか？`)) return;
       const next = presets.slice(); next.splice(i, 1); cmd({ action: 'setPresets', presets: next });
     };
-    row.appendChild(chip); row.appendChild(del); wrap.appendChild(row);
+    row.appendChild(load); row.appendChild(del); wrap.appendChild(row);
   });
 }
 
@@ -441,10 +485,22 @@ document.querySelectorAll('.setSummary .step').forEach((btn) => {
 });
 document.querySelectorAll('[data-adj]').forEach((b) => b.onclick = () => cmd({ action: 'adjust', deltaSec: Number(b.dataset.adj) }));
 
-$('volSlider').addEventListener('input', () => { if (window.Bell) Bell.setVolume(Number($('volSlider').value)); });
+// 音量：ドラッグ中はローカル反映＋数値表示、離したら保存＋試聴
+function showVol(v) { $('volVal').textContent = `${Math.round(Number(v) * 100)}%`; }
+$('volSlider').addEventListener('input', () => { showVol($('volSlider').value); if (window.Bell) Bell.setVolume(Number($('volSlider').value)); });
 $('volSlider').addEventListener('change', () => { cmd({ action: 'setVolume', value: Number($('volSlider').value) }); if (window.Bell) { Bell.unlock(); Bell.ring('warn', state.bellSound); } });
-$('pitchSlider').addEventListener('input', () => { if (window.Bell) Bell.setPitch(Number($('pitchSlider').value)); });
-$('pitchSlider').addEventListener('change', () => { cmd({ action: 'setPitch', value: Number($('pitchSlider').value) }); if (window.Bell) { Bell.unlock(); Bell.ring('warn', state.bellSound); } });
+// 高さ（ピッチ）：スライダーは半音（−12〜+12）、保存値は周波数倍率 2^(半音/12)。ダブルタップで標準（0）に戻す。
+function semiToRatio(st) { return Math.pow(2, Number(st) / 12); }
+function ratioToSemi(r) { return Math.max(-12, Math.min(12, Math.round(12 * Math.log2(Number(r) || 1)))); }
+function showPitch(semi) { $('pitchVal').textContent = `${semi > 0 ? '+' : ''}${semi} ${t().semi}（×${semiToRatio(semi).toFixed(2)}）`; }
+$('pitchSlider').addEventListener('input', () => { showPitch(Number($('pitchSlider').value)); if (window.Bell) Bell.setPitch(semiToRatio($('pitchSlider').value)); });
+$('pitchSlider').addEventListener('change', () => { cmd({ action: 'setPitch', value: semiToRatio($('pitchSlider').value) }); if (window.Bell) { Bell.unlock(); Bell.ring('warn', state.bellSound); } });
+$('pitchSlider').addEventListener('dblclick', () => { $('pitchSlider').value = 0; $('pitchSlider').dispatchEvent(new Event('change')); });
+// 2鈴・3鈴の間隔：音色ごとの基準間隔 × 倍率（0.5〜3）。表示は選択中の音色での実秒。離したら保存＋2鈴で試聴。
+function showGap(g) { $('gapVal').textContent = `×${Number(g).toFixed(1)}（${window.Bell ? Bell.interval(state.bellSound).toFixed(2) : '-'} ${t().secU}）`; }
+$('gapSlider').addEventListener('input', () => { if (window.Bell) Bell.setGap(Number($('gapSlider').value)); showGap($('gapSlider').value); });
+$('gapSlider').addEventListener('change', () => { cmd({ action: 'setBellGap', value: Number($('gapSlider').value) }); if (window.Bell) { Bell.unlock(); Bell.ring('talkEnd', state.bellSound); } });
+$('gapSlider').addEventListener('dblclick', () => { $('gapSlider').value = 1; $('gapSlider').dispatchEvent(new Event('change')); });
 
 $('btnSavePreset').onclick = () => {
   const r = (s) => Math.round((s || 0) / 60);

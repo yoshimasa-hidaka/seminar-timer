@@ -14,6 +14,9 @@
   const clampSec = (sec) => Math.max(0, Math.min(MAX_SEC, Math.round(sec)));
 
   // 既定状態（server.js / solo.html 共通の素の状態。bellEvent/lanIp/port 等の環境固有は呼び出し側が付ける）
+  // 音色の許可リスト（bell.js の ORDER と同じ並び。server.js と solo.html の設定復元が参照する）
+  const SOUNDS = ['deskbell', 'timer', 'alarm', 'school', 'doorbell', 'chime', 'bell', 'gong', 'marimba', 'beep', 'buzzer'];
+
   function defaultState() {
     return {
       phase: 'idle',        // idle | running | paused
@@ -27,10 +30,11 @@
       message: '',
       lang: 'ja',           // 'ja' | 'en'
       clockScope: 'phase',  // 'phase' | 'total'（全体=質疑込み）
-      bellSound: 'chime',   // 'chime' | 'bell' | 'beep'
+      bellSound: 'deskbell', // SOUNDS のいずれか（bell.js の ORDER と一致）
       ipadBell: true,       // iPad でベルを鳴らすか
       volume: 0.9,          // 0–1
       pitch: 1.0,           // 周波数倍率
+      bellGap: 1.0,         // 2鈴・3鈴の間隔の倍率（0.5–3）
       presets: [[10, 5, 3, 0], [15, 5, 3, 0], [25, 5, 5, 0], [30, 10, 5, 0], [45, 15, 5, 0]],
     };
   }
@@ -77,8 +81,8 @@
   }
 
   // 設定永続化の対象キー（走行中の時計＝phase/segment/remainingSec/message は保存しない）
-  const CONFIG_KEYS = ['talkSec', 'qaSec', 'talkWarnSec', 'talkWarn2Sec', 'bellSound', 'ipadBell', 'volume', 'pitch', 'presets', 'lang', 'clockScope'];
-  const CONFIG_ACTIONS = new Set(['set', 'setBellSound', 'setIpadBell', 'setVolume', 'setPitch', 'setPresets', 'setLang', 'setClockScope']);
+  const CONFIG_KEYS = ['talkSec', 'qaSec', 'talkWarnSec', 'talkWarn2Sec', 'bellSound', 'ipadBell', 'volume', 'pitch', 'bellGap', 'presets', 'lang', 'clockScope'];
+  const CONFIG_ACTIONS = new Set(['set', 'setBellSound', 'setIpadBell', 'setVolume', 'setPitch', 'setBellGap', 'setPresets', 'setLang', 'setClockScope']);
 
   // コマンド適用。ringBell の代わりに鳴らすベルを bells に積み、{ok, bells, persist} を返す。
   function applyCommand(state, cmd) {
@@ -136,7 +140,7 @@
         state.clockScope = cmd.scope === 'total' ? 'total' : 'phase';
         break;
       case 'setBellSound':
-        if (['beep', 'chime', 'bell'].includes(cmd.sound)) state.bellSound = cmd.sound;
+        if (SOUNDS.includes(cmd.sound)) state.bellSound = cmd.sound;
         break;
       case 'setIpadBell':
         state.ipadBell = !!cmd.on;
@@ -149,6 +153,11 @@
       case 'setPitch': {
         const p = Number(cmd.value);
         if (Number.isFinite(p)) state.pitch = Math.max(0.25, Math.min(4, p));
+        break;
+      }
+      case 'setBellGap': {
+        const g = Number(cmd.value);
+        if (Number.isFinite(g)) state.bellGap = Math.max(0.5, Math.min(3, g));
         break;
       }
       case 'setPresets': {
@@ -165,5 +174,5 @@
     return { ok, bells, persist: ok && CONFIG_ACTIONS.has(cmd.action) };
   }
 
-  return { MAX_SEC, clampSec, defaultState, normalizePresets, tick, applyCommand, CONFIG_KEYS, CONFIG_ACTIONS };
+  return { MAX_SEC, clampSec, defaultState, normalizePresets, tick, applyCommand, CONFIG_KEYS, CONFIG_ACTIONS, SOUNDS };
 });

@@ -35,7 +35,7 @@ If port 8080 is in use, it falls back to 8081, and so on. The actual port is sho
 
 Open the live page [https://yoshimasa-hidaka.github.io/seminar-timer/solo.html](https://yoshimasa-hidaka.github.io/seminar-timer/solo.html) in Safari on the iPad and choose "Add to Home Screen" from the Share menu. From then on, launch it from the Home Screen icon; it runs fully offline, even at a venue.
 
-After it starts, tap the screen once to enable sound. Use the controls in the lower half — start/pause, manual bells (🔔1/🔔2/🔔3), presets, warnings, and so on. While running, the panel shrinks to the control row so the timer is as large as possible; the settings below are reached by scrolling. Settings such as durations, warnings, bell sound, and presets are saved on the iPad (localStorage) and restored next time.
+After it starts, tap the screen once to enable sound. Use the controls in the lower half — start/pause, manual bells (🔔1/🔔2/🔔3), presets, warnings, and so on. In a PC browser, the 🖥 button opens a display-only window: put it full screen on the projector and operate from the original window (no server needed; the two windows sync inside the browser, and sound comes from the control window). While running, the panel shrinks to the control row so the timer is as large as possible; the settings below are reached by scrolling. Settings such as durations, warnings, bell sound, and presets are saved on the iPad (localStorage) and restored next time.
 
 ## For first-time users (giving / receiving mode ①)
 
@@ -70,8 +70,9 @@ Zipping the whole folder is the easiest way to share it (macOS Archive Utility p
 - You can ring the manual bells 🔔1 / 🔔2 / 🔔3 anytime, from the control screen (① PC) and the iPad-only app (②).
 
 ### Bell sound (synthesized — no audio files)
-- Choose the timbre from Chime / Bell / Beep (it previews when you select one).
-- Adjust volume and pitch with sliders.
+- Choose from 11 timbres (each previews when selected): Desk bell (the timekeeper's call bell, the default), Timer (kitchen-timer beeps), Alarm (two-tone warble), School bell (Westminster chimes), Doorbell, Chime, Bell, Gong, Xylophone, Beep, and Buzzer. For 1, 2, and 3 bells, Desk bell / Timer / Alarm / Gong / Buzzer strike one, two, or three times, and School bell plays one, two, or three phrases.
+- Adjust volume and pitch with sliders. Pitch moves in semitones from −12 to +12 (one octave down or up), shows the current value, and double-click (double-tap on iPad) resets it.
+- The gap between strikes for 2 and 3 bells is adjustable too (0.5× to 3× the voice's natural spacing; the readout shows seconds for the selected voice, and releasing previews two bells).
 - In ①, the iPad sound and the PC sound can be toggled independently (useful when the PC is connected to the room speakers; ② has a single sound on/off).
 
 ### Messages
@@ -79,7 +80,7 @@ Zipping the whole folder is the easiest way to share it (macOS Archive Utility p
 - The message currently showing also appears on the control screen, so you don't forget to clear it.
 
 ### Control screen (PC)
-- Apply a preset (e.g. 10+5 / 15+5 / 25+5 / 30+10 / 45+15) with one tap. You can add, edit, and delete your own freely, and the warnings are remembered too.
+- Apply a preset (e.g. 10+5 / 15+5 / 25+5 / 30+10 / 45+15) with one tap. In "Edit presets" under the details section you can type the talk, Q&A, warning 1, and warning 2 minutes directly, and add or delete rows.
 - Time settings apply instantly (input fields and −/+ steppers).
 - Keyboard: Space = start/pause, R = reset, Q = to Q&A, T = to Talk, ←/→ = ±10 s, ↑/↓ = ±1 min.
 - To prevent mistakes, time settings and reset are disabled while running, and deleting a preset asks for confirmation.
@@ -155,7 +156,7 @@ Note that on iPad you cannot open a local `.html` file directly (the Files app o
 - To check single-device mode locally, open `http://localhost:<port>/solo` (from an iPad, `http://<IP>:<port>/solo`) while the server runs. This path is not offline.
 - Modes ① and ② share the same state machine (`public/timer-core.js`), so the timer, warnings, and auto-advance behave identically.
 - The single file `seminar-timer-ipad.html` is generated from `public/solo.html`, `timer-core.js`, and `bell.js` via `node build-solo.js`. Icons can be regenerated with `node make-icons.js`.
-- Tests: `node test/platform.test.js` (LAN IP ranking and parsing of the per-OS route commands) and `node test/server.smoke.js` (server start, pages, SSE, commands). The bundled `.github/workflows/test.yml` runs both on Linux, Windows, and macOS on every push.
+- Tests: `node test/platform.test.js` (LAN IP ranking and parsing of the per-OS route commands), `node test/bell.test.js` (every voice's schedule and the sound allow-list), and `node test/server.smoke.js` (server start, pages, SSE, commands). The bundled `.github/workflows/test.yml` runs both on Linux, Windows, and macOS on every push.
 
 ### Layout
 
