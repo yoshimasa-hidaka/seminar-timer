@@ -14,6 +14,9 @@
   const clampSec = (sec) => Math.max(0, Math.min(MAX_SEC, Math.round(sec)));
 
   // 既定状態（server.js / solo.html 共通の素の状態。bellEvent/lanIp/port 等の環境固有は呼び出し側が付ける）
+  // 音色の許可リスト（bell.js の ORDER と同じ並び。server.js と solo.html の設定復元が参照する）
+  const SOUNDS = ['timer', 'chime', 'bell', 'beep'];
+
   function defaultState() {
     return {
       phase: 'idle',        // idle | running | paused
@@ -27,7 +30,7 @@
       message: '',
       lang: 'ja',           // 'ja' | 'en'
       clockScope: 'phase',  // 'phase' | 'total'（全体=質疑込み）
-      bellSound: 'chime',   // 'chime' | 'bell' | 'beep'
+      bellSound: 'timer',   // SOUNDS のいずれか（bell.js の ORDER と一致）
       ipadBell: true,       // iPad でベルを鳴らすか
       volume: 0.9,          // 0–1
       pitch: 1.0,           // 周波数倍率
@@ -136,7 +139,7 @@
         state.clockScope = cmd.scope === 'total' ? 'total' : 'phase';
         break;
       case 'setBellSound':
-        if (['beep', 'chime', 'bell'].includes(cmd.sound)) state.bellSound = cmd.sound;
+        if (SOUNDS.includes(cmd.sound)) state.bellSound = cmd.sound;
         break;
       case 'setIpadBell':
         state.ipadBell = !!cmd.on;
@@ -165,5 +168,5 @@
     return { ok, bells, persist: ok && CONFIG_ACTIONS.has(cmd.action) };
   }
 
-  return { MAX_SEC, clampSec, defaultState, normalizePresets, tick, applyCommand, CONFIG_KEYS, CONFIG_ACTIONS };
+  return { MAX_SEC, clampSec, defaultState, normalizePresets, tick, applyCommand, CONFIG_KEYS, CONFIG_ACTIONS, SOUNDS };
 });

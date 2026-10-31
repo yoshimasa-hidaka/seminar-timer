@@ -213,6 +213,9 @@
   const clampSec = (sec) => Math.max(0, Math.min(MAX_SEC, Math.round(sec)));
 
   // 既定状態（server.js / solo.html 共通の素の状態。bellEvent/lanIp/port 等の環境固有は呼び出し側が付ける）
+  // 音色の許可リスト（bell.js の ORDER と同じ並び。server.js と solo.html の設定復元が参照する）
+  const SOUNDS = ['timer', 'chime', 'bell', 'beep'];
+
   function defaultState() {
     return {
       phase: 'idle',        // idle | running | paused
@@ -226,7 +229,7 @@
       message: '',
       lang: 'ja',           // 'ja' | 'en'
       clockScope: 'phase',  // 'phase' | 'total'（全体=質疑込み）
-      bellSound: 'chime',   // 'chime' | 'bell' | 'beep'
+      bellSound: 'timer',   // SOUNDS のいずれか（bell.js の ORDER と一致）
       ipadBell: true,       // iPad でベルを鳴らすか
       volume: 0.9,          // 0–1
       pitch: 1.0,           // 周波数倍率
@@ -335,7 +338,7 @@
         state.clockScope = cmd.scope === 'total' ? 'total' : 'phase';
         break;
       case 'setBellSound':
-        if (['beep', 'chime', 'bell'].includes(cmd.sound)) state.bellSound = cmd.sound;
+        if (SOUNDS.includes(cmd.sound)) state.bellSound = cmd.sound;
         break;
       case 'setIpadBell':
         state.ipadBell = !!cmd.on;
@@ -364,7 +367,7 @@
     return { ok, bells, persist: ok && CONFIG_ACTIONS.has(cmd.action) };
   }
 
-  return { MAX_SEC, clampSec, defaultState, normalizePresets, tick, applyCommand, CONFIG_KEYS, CONFIG_ACTIONS };
+  return { MAX_SEC, clampSec, defaultState, normalizePresets, tick, applyCommand, CONFIG_KEYS, CONFIG_ACTIONS, SOUNDS };
 });
 
 </script>
@@ -373,6 +376,7 @@
 // ベル音（WebAudio 合成・外部ファイル/依存なし）。iPad・操作画面で共有。
 // AudioContext の生成/resume/再生をここに集約し、両ページは Bell.unlock()/ring()/running() を使う。
 // soundName = 音色(voice)。bellType(warn/talkEnd/final) = 鳴らすメロディ（音数で 1鈴/2鈴/3鈴）。
+// 音色の一覧（ORDER）が正本。許可リストは timer-core.js の SOUNDS と一致させる（build-solo と server が両方を読む）。
 (function (root) {
   'use strict';
 
@@ -417,14 +421,34 @@
     car.start(t); car.stop(t + dur); mod.start(t); mod.stop(t + dur);
   }
 
-  const VOICES = { chime: voiceChime, bell: voiceBell, beep: voiceBeep };
-  const ORDER = ['chime', 'bell', 'beep'];
+  // タイマー：キッチンタイマー／電子時計のアラーム音（圧電ブザー風「ピピピピ」）。
+  // 1鈴＝「ピピピピ」1回、2鈴＝2回、3鈴＝3回。音程はメロディ(f)を使わず一定（pitch スライダーだけ効く）。
+  // 矩形波の立ち上がり/立ち下がりはクリック防止に数 ms のランプを入れる。
+  function voiceTimer(ctx, out, f, t) {
+    const hz = 2200 * pitch, on = 0.06, off = 0.06, pips = 4, lvl = 0.22;
+    const o = ctx.createOscillator(), g = ctx.createGain();
+    o.type = 'square'; o.frequency.value = hz;
+    g.gain.setValueAtTime(0.0001, t);
+    for (let i = 0; i < pips; i++) {
+      const s = t + i * (on + off);
+      g.gain.setValueAtTime(0.0001, s);
+      g.gain.exponentialRampToValueAtTime(lvl, s + 0.004);
+      g.gain.setValueAtTime(lvl, s + on - 0.006);
+      g.gain.exponentialRampToValueAtTime(0.0001, s + on);
+    }
+    o.connect(g).connect(out); o.start(t); o.stop(t + pips * (on + off) + 0.05);
+  }
+  voiceTimer.step = 0.8; // 「ピピピピ」の間隔（他の音色は STEP）
+
+  const VOICES = { timer: voiceTimer, chime: voiceChime, bell: voiceBell, beep: voiceBeep };
+  const ORDER = ['timer', 'chime', 'bell', 'beep'];
   const LABELS = {
+    timer: { ja: 'タイマー', en: 'Timer' },
     chime: { ja: 'チャイム', en: 'Chime' },
     bell:  { ja: 'ベル', en: 'Bell' },
     beep:  { ja: 'ビープ', en: 'Beep' },
   };
-  const DEFAULT = 'chime';
+  const DEFAULT = 'timer';
 
   const N = { C5: 523.25, E5: 659.25, G5: 783.99, A5: 880.0 };
   const SEQ = {
@@ -474,10 +498,11 @@
     const master = c.createGain();
     master.gain.value = volume;
     master.connect(c.destination);
+    const step = voice.step || STEP; // 音色ごとの間隔（タイマー音は 1 音が長い）
     let t = c.currentTime + 0.02;
-    for (const f of seq) { voice(c, master, f * pitch, t); t += STEP; } // ピッチ倍率を適用
+    for (const f of seq) { voice(c, master, f * pitch, t); t += step; } // ピッチ倍率を適用
     // 後始末（master ノードのリーク防止）
-    const ms = (seq.length * STEP + 2.5) * 1000;
+    const ms = (seq.length * step + 2.5) * 1000;
     try { setTimeout(() => { try { master.disconnect(); } catch (_) {} }, ms); } catch (_) {}
   }
 
@@ -556,7 +581,7 @@ function load() {
   if ((x = sec(raw.talkWarn2Sec)) != null) state.talkWarn2Sec = x;
   if ((x = num(raw.volume, 0, 1)) != null) state.volume = x;
   if ((x = num(raw.pitch, 0.25, 4)) != null) state.pitch = x;
-  if (['chime', 'bell', 'beep'].includes(raw.bellSound)) state.bellSound = raw.bellSound;
+  if (TimerCore.SOUNDS.includes(raw.bellSound)) state.bellSound = raw.bellSound;
   if (['ja', 'en'].includes(raw.lang)) state.lang = raw.lang;
   if (['phase', 'total'].includes(raw.clockScope)) state.clockScope = raw.clockScope;
   const ps = TimerCore.normalizePresets(raw.presets);

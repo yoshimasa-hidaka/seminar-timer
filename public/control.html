@@ -331,7 +331,7 @@ function applyLang() {
 function buildBellSounds() {
   const wrap = document.getElementById('bellSounds');
   if (!wrap || !window.Bell) return;
-  const cur = (lastState && lastState.bellSound) || (window.Bell ? Bell.DEFAULT : 'chime');
+  const cur = (lastState && lastState.bellSound) || (window.Bell ? Bell.DEFAULT : 'timer');
   wrap.innerHTML = '';
   Bell.ORDER.forEach((name) => {
     const b = document.createElement('button');

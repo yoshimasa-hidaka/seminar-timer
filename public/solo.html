@@ -251,7 +251,7 @@ function load() {
   if ((x = sec(raw.talkWarn2Sec)) != null) state.talkWarn2Sec = x;
   if ((x = num(raw.volume, 0, 1)) != null) state.volume = x;
   if ((x = num(raw.pitch, 0.25, 4)) != null) state.pitch = x;
-  if (['chime', 'bell', 'beep'].includes(raw.bellSound)) state.bellSound = raw.bellSound;
+  if (TimerCore.SOUNDS.includes(raw.bellSound)) state.bellSound = raw.bellSound;
   if (['ja', 'en'].includes(raw.lang)) state.lang = raw.lang;
   if (['phase', 'total'].includes(raw.clockScope)) state.clockScope = raw.clockScope;
   const ps = TimerCore.normalizePresets(raw.presets);

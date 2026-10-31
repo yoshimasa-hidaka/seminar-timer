@@ -1,6 +1,7 @@
 // ベル音（WebAudio 合成・外部ファイル/依存なし）。iPad・操作画面で共有。
 // AudioContext の生成/resume/再生をここに集約し、両ページは Bell.unlock()/ring()/running() を使う。
 // soundName = 音色(voice)。bellType(warn/talkEnd/final) = 鳴らすメロディ（音数で 1鈴/2鈴/3鈴）。
+// 音色の一覧（ORDER）が正本。許可リストは timer-core.js の SOUNDS と一致させる（build-solo と server が両方を読む）。
 (function (root) {
   'use strict';
 
@@ -45,14 +46,34 @@
     car.start(t); car.stop(t + dur); mod.start(t); mod.stop(t + dur);
   }
 
-  const VOICES = { chime: voiceChime, bell: voiceBell, beep: voiceBeep };
-  const ORDER = ['chime', 'bell', 'beep'];
+  // タイマー：キッチンタイマー／電子時計のアラーム音（圧電ブザー風「ピピピピ」）。
+  // 1鈴＝「ピピピピ」1回、2鈴＝2回、3鈴＝3回。音程はメロディ(f)を使わず一定（pitch スライダーだけ効く）。
+  // 矩形波の立ち上がり/立ち下がりはクリック防止に数 ms のランプを入れる。
+  function voiceTimer(ctx, out, f, t) {
+    const hz = 2200 * pitch, on = 0.06, off = 0.06, pips = 4, lvl = 0.22;
+    const o = ctx.createOscillator(), g = ctx.createGain();
+    o.type = 'square'; o.frequency.value = hz;
+    g.gain.setValueAtTime(0.0001, t);
+    for (let i = 0; i < pips; i++) {
+      const s = t + i * (on + off);
+      g.gain.setValueAtTime(0.0001, s);
+      g.gain.exponentialRampToValueAtTime(lvl, s + 0.004);
+      g.gain.setValueAtTime(lvl, s + on - 0.006);
+      g.gain.exponentialRampToValueAtTime(0.0001, s + on);
+    }
+    o.connect(g).connect(out); o.start(t); o.stop(t + pips * (on + off) + 0.05);
+  }
+  voiceTimer.step = 0.8; // 「ピピピピ」の間隔（他の音色は STEP）
+
+  const VOICES = { timer: voiceTimer, chime: voiceChime, bell: voiceBell, beep: voiceBeep };
+  const ORDER = ['timer', 'chime', 'bell', 'beep'];
   const LABELS = {
+    timer: { ja: 'タイマー', en: 'Timer' },
     chime: { ja: 'チャイム', en: 'Chime' },
     bell:  { ja: 'ベル', en: 'Bell' },
     beep:  { ja: 'ビープ', en: 'Beep' },
   };
-  const DEFAULT = 'chime';
+  const DEFAULT = 'timer';
 
   const N = { C5: 523.25, E5: 659.25, G5: 783.99, A5: 880.0 };
   const SEQ = {
@@ -102,10 +123,11 @@
     const master = c.createGain();
     master.gain.value = volume;
     master.connect(c.destination);
+    const step = voice.step || STEP; // 音色ごとの間隔（タイマー音は 1 音が長い）
     let t = c.currentTime + 0.02;
-    for (const f of seq) { voice(c, master, f * pitch, t); t += STEP; } // ピッチ倍率を適用
+    for (const f of seq) { voice(c, master, f * pitch, t); t += step; } // ピッチ倍率を適用
     // 後始末（master ノードのリーク防止）
-    const ms = (seq.length * STEP + 2.5) * 1000;
+    const ms = (seq.length * step + 2.5) * 1000;
     try { setTimeout(() => { try { master.disconnect(); } catch (_) {} }, ms); } catch (_) {}
   }
 
