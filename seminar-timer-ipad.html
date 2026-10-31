@@ -90,8 +90,11 @@
   .field .val { width: 7em; font-size: 12px; color: #9aa; font-variant-numeric: tabular-nums; text-align: right; }
   #bellSounds button { flex: none; padding: 8px 18px; font-size: 13px; }
   #bellSounds button.active { background: #2e7d32; }
-  .presetrow { display: flex; gap: 6px; margin-bottom: 6px; }
-  .presetchip { flex: 1; font-size: 13px; padding: 9px 10px; text-align: left; background: #2e3238; }
+  .presetrow { display: flex; gap: 6px; margin-bottom: 6px; align-items: center; }
+  .presetrow input { flex: none; width: 4.4em; text-align: center; padding: 8px 4px; font-size: 14px; }
+  .presetbtn { flex: none; padding: 9px 13px; font-size: 13px; background: #2e3238; }
+  .presethead { margin-bottom: 2px; }
+  .presethead span { flex: none; width: 4.4em; text-align: center; font-size: 11px; color: #9aa; }
   .presetdel { flex: none; padding: 9px 13px; font-size: 14px; background: #2e3238; }
   .hint { color: #6b7280; font-size: 11px; line-height: 1.6; }
   /* セッション中（走行・一時停止＝idle 以外）は時間設定 UI を隠す。idle（未開始・トーク間）だけ全展開。
@@ -424,10 +427,11 @@
 
   // 卓上ベル：研究会のタイムキーパーが鳴らす呼び鈴「チーン」。高い基音（約 2.8 kHz）に、わずかにずれた
   // 倍音と打撃の短い金属音を重ね、鋭く立ち上がって 1.5 秒ほどで消える。高さは一定（打つたび同じ音）。
-  // 基音を 2 本わずかにずらして重ねると、本物のベルのうなり（シャラッとした揺れ）が出る。
+  // 基音を 2 本わずかにずらして重ねると本物のベルのうなりが出る。ずれは 0.07%（約 2 Hz）に抑える＝
+  // 大きくすると（0.4% で約 11 Hz）1 打が「チリリリ」と連打に聞こえ、2鈴・3鈴の回数が分からなくなる。
   function voiceDeskBell(ctx, out, f, t) {
     const base = 2800 * pitch;
-    partials(ctx, out, base, t, [[1, 1.0, 1.6], [1.004, 0.7, 1.4], [1.48, 0.35, 1.0], [2.09, 0.22, 0.6], [2.76, 0.14, 0.35]], 0.4, 0.002);
+    partials(ctx, out, base, t, [[1, 1.0, 1.6], [1.0007, 0.7, 1.4], [1.48, 0.35, 1.0], [2.09, 0.22, 0.6], [2.76, 0.14, 0.35]], 0.4, 0.002);
     partials(ctx, out, base, t, [[1.9, 0.5, 0.04], [3.3, 0.3, 0.03]], 0.5, 0.001); // 打撃音（ごく短い）
   }
   voiceDeskBell.step = 0.55;
@@ -636,7 +640,7 @@ const I18N = {
     msgH: 'メッセージを表示', clear: 'メッセージを消す',
     moreH: '詳細設定（ベル音・プリセット編集・キーボード）',
     presetH: 'プリセット（講演＋質疑）',
-    presetEditH: 'プリセット編集（✕で削除）', savePreset: '＋ 今の設定で新規追加',
+    presetEditH: 'プリセット編集（数値を直接書き換え。読込＝現在の設定に反映／✕＝削除）', loadBtn: '読込', savePreset: '＋ 今の設定で新規追加',
     bellSoundH: 'ベル音（選ぶと試聴）', volLabel: '音量', pitchLabel: '高さ（ピッチ）', semi: '半音', gapLabel: '2鈴・3鈴の間隔', secU: '秒',
     keyH: 'キーボード操作', keyHint: 'スペース＝開始/一時停止　R＝リセット　Q＝質疑へ　T＝講演に戻す　←/→＝±10秒　↑/↓＝±1分',
     sumTalk: '講演', sumQa: '質疑', sumTotal: '全体', minU: '分', sumTalkWarn: '予鈴1', sumTalkWarn2: '予鈴2', warnShort: '予鈴',
@@ -651,7 +655,7 @@ const I18N = {
     msgH: 'Show a message', clear: 'Clear message',
     moreH: 'More (bell sound, edit presets, keyboard)',
     presetH: 'Presets (talk + Q&A)',
-    presetEditH: 'Edit presets (✕ to delete)', savePreset: '＋ Add current as new',
+    presetEditH: 'Edit presets (type the numbers; Load = apply to current settings, ✕ = delete)', loadBtn: 'Load', savePreset: '＋ Add current as new',
     bellSoundH: 'Bell sound (tap to preview)', volLabel: 'Volume', pitchLabel: 'Pitch', semi: 'semitones', gapLabel: 'Gap between strikes', secU: 's',
     keyH: 'Keyboard', keyHint: 'Space = start/pause   R = reset   Q = to Q&A   T = back to talk   ←/→ = ±10 s   ↑/↓ = ±1 min',
     sumTalk: 'Talk', sumQa: 'Q&A', sumTotal: 'Total', minU: ' min', sumTalkWarn: 'Warn 1', sumTalkWarn2: 'Warn 2', warnShort: 'warn',
@@ -836,21 +840,36 @@ function buildPresets() {
     wrap.appendChild(b);
   });
 }
+// プリセット編集：各行の数値（講演・質疑・予鈴1・予鈴2＝分）を直接書き換える。確定で保存。[読込] で反映、[✕] で削除。
+const PRESET_COLS = ['sumTalk', 'sumQa', 'sumTalkWarn', 'sumTalkWarn2'];
 function renderPresetList() {
   const wrap = $('presetList'); const d = t(); wrap.innerHTML = '';
   const presets = state.presets || [];
-  presets.forEach(([tk, qa, tw, tw2], i) => {
+  const head = document.createElement('div'); head.className = 'presetrow presethead';
+  PRESET_COLS.forEach((k) => { const sp = document.createElement('span'); sp.textContent = d[k]; head.appendChild(sp); });
+  wrap.appendChild(head);
+  presets.forEach((p, i) => {
     const row = document.createElement('div'); row.className = 'presetrow';
-    const chip = document.createElement('button'); chip.className = 'presetchip';
-    chip.textContent = `${tk}+${qa}（${d.warnShort} ${tw}/${tw2}）`;
-    chip.onclick = () => cmd({ action: 'set', talkMin: tk, qaMin: qa, talkWarnMin: tw, talkWarn2Min: tw2 });
+    const inputs = PRESET_COLS.map((k, j) => {
+      const inp = document.createElement('input');
+      inp.type = 'number'; inp.inputMode = 'numeric'; inp.min = j === 0 ? 1 : 0; inp.max = 600; inp.step = 1; inp.value = p[j]; inp.title = d[k];
+      inp.onchange = () => {
+        const next = presets.slice();
+        next[i] = inputs.map((el, k2) => Math.max(k2 === 0 ? 1 : 0, Math.round(Number(el.value) || 0)));
+        cmd({ action: 'setPresets', presets: next });
+      };
+      inp.onkeydown = (e) => { if (e.key === 'Enter') inp.blur(); };
+      row.appendChild(inp); return inp;
+    });
+    const load = document.createElement('button'); load.className = 'muted presetbtn'; load.textContent = d.loadBtn;
+    load.onclick = () => cmd({ action: 'set', talkMin: p[0], qaMin: p[1], talkWarnMin: p[2], talkWarn2Min: p[3] });
     const del = document.createElement('button'); del.className = 'presetdel'; del.textContent = '✕';
     del.onclick = () => {
-      const label = `${tk}+${qa}`;
+      const label = `${p[0]}+${p[1]}`;
       if (!window.confirm(lang === 'en' ? `Delete preset "${label}"?` : `プリセット「${label}」を削除しますか？`)) return;
       const next = presets.slice(); next.splice(i, 1); cmd({ action: 'setPresets', presets: next });
     };
-    row.appendChild(chip); row.appendChild(del); wrap.appendChild(row);
+    row.appendChild(load); row.appendChild(del); wrap.appendChild(row);
   });
 }
 

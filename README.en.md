@@ -73,7 +73,7 @@ Zipping the whole folder is the easiest way to share it (macOS Archive Utility p
 - The message currently showing also appears on the control screen, so you don't forget to clear it.
 
 ### Control screen (Mac)
-- Apply a preset (e.g. 10+5 / 15+5 / 25+5 / 30+10 / 45+15) with one tap. You can add, edit, and delete your own freely, and the warnings are remembered too.
+- Apply a preset (e.g. 10+5 / 15+5 / 25+5 / 30+10 / 45+15) with one tap. In "Edit presets" under the details section you can type the talk, Q&A, warning 1, and warning 2 minutes directly, and add or delete rows.
 - Time settings apply instantly (input fields and −/+ steppers).
 - Keyboard: Space = start/pause, R = reset, Q = to Q&A, T = to Talk, ←/→ = ±10 s, ↑/↓ = ±1 min.
 - To prevent mistakes, time settings and reset are disabled while running, and deleting a preset asks for confirmation.

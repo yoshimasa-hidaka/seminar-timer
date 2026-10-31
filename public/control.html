@@ -62,8 +62,10 @@
   .grid4 { display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 8px; }
   .quick button, .preset button { background: #353a44; font-size: 15px; padding: 12px 8px; }
   #presets { grid-template-columns: repeat(5, 1fr); }
-  .presetrow { display: flex; gap: 6px; margin-bottom: 6px; }
-  .presetchip { flex: 1; font-size: 14px; padding: 9px 12px; text-align: left; }
+  .presetrow { display: flex; gap: 6px; margin-bottom: 6px; align-items: center; }
+  .presetrow input { flex: none; width: 4.4em; text-align: center; padding: 8px 4px; font-size: 14px; }
+  .presethead { margin-bottom: 2px; }
+  .presethead span { flex: none; width: 4.4em; text-align: center; font-size: 11px; color: #9aa; }
   .presetbtn { flex: none; padding: 9px 14px; font-size: 13px; }
   .presetdel { flex: none; padding: 9px 14px; font-size: 14px; }
   .muted { background: #2e3238; }
@@ -237,8 +239,8 @@ const I18N = {
     msgH: 'メッセージを iPad に表示', send: '送信', clear: '消す',
     moreH: '詳細設定（個別設定・接続・キーボード）',
     presetH: 'プリセット（講演＋質疑）',
-    presetEditH: 'プリセット編集（タップで読込→調整→「更新」で上書き／✕で削除）',
-    updateOne: '更新', loadHint: 'タップで現在の設定に読み込む', savePreset: '＋ 今の設定で新規追加',
+    presetEditH: 'プリセット編集（数値を直接書き換え。読込＝現在の設定に反映／✕＝削除）',
+    loadBtn: '読込', loadHint: '現在の設定に読み込む', savePreset: '＋ 今の設定で新規追加',
     setH: '個別に設定',
     lblTitle: '講演タイトル', lblTalk: '講演（分）', lblQa: '質疑応答（分）',
     lblTalkWarn: '予鈴1（講演終了の何分前）', lblTalkWarn2: '予鈴2（講演終了の何分前）',
@@ -269,8 +271,8 @@ const I18N = {
     msgH: 'Show message on iPad', send: 'Send', clear: 'Clear',
     moreH: 'More (settings, connection, keyboard)',
     presetH: 'Presets (talk + Q&A)',
-    presetEditH: 'Edit presets (tap to load → adjust → "Update" / ✕ delete)',
-    updateOne: 'Update', loadHint: 'Tap to load into current settings', savePreset: '＋ Add current as new',
+    presetEditH: 'Edit presets (type the numbers; Load = apply to current settings, ✕ = delete)',
+    loadBtn: 'Load', loadHint: 'Load into current settings', savePreset: '＋ Add current as new',
     setH: 'Set individually',
     lblTitle: 'Talk title', lblTalk: 'Talk (min)', lblQa: 'Q&A (min)',
     lblTalkWarn: 'Warning 1 (min before talk end)', lblTalkWarn2: 'Warning 2 (min before talk end)',
@@ -379,45 +381,50 @@ function loadPreset(tk, qa, tw, tw2) {
   cmd({ action: 'set', talkMin: tk, qaMin: qa, talkWarnMin: tw, talkWarn2Min: tw2 });
 }
 
-// プリセット編集：各行＝[チップ(タップで読込)] [更新(現在値で上書き)] [✕(削除)]
+// プリセット編集：各行の数値（講演・質疑・予鈴1・予鈴2＝分）を直接書き換える。
+// 確定（Enter／欄を離れる）で保存。[読込] で現在の設定に反映、[✕] で削除（確認あり）。
+const PRESET_COLS = ['sumTalk', 'sumQa', 'sumTalkWarn', 'sumTalkWarn2'];
 function renderPresetList() {
   const wrap = document.getElementById('presetList');
   if (!wrap) return;
   const d = t();
   const presets = curPresets();
   wrap.innerHTML = '';
-  presets.forEach(([tk, qa, tw, tw2], i) => {
+  const head = document.createElement('div');
+  head.className = 'presetrow presethead';
+  PRESET_COLS.forEach((k) => { const sp = document.createElement('span'); sp.textContent = d[k]; head.appendChild(sp); });
+  wrap.appendChild(head);
+  presets.forEach((p, i) => {
     const row = document.createElement('div');
     row.className = 'presetrow';
-    const chip = document.createElement('button');
-    chip.className = 'muted presetchip';
-    chip.textContent = `${tk}+${qa}（${d.warnShort} ${tw}/${tw2}）`;
-    chip.title = d.loadHint;
-    chip.onclick = () => loadPreset(tk, qa, tw, tw2);          // 読込（現在の設定に反映）
-    const upd = document.createElement('button');
-    upd.className = 'muted presetbtn';
-    upd.textContent = d.updateOne;
-    upd.onclick = () => {                                       // 現在の設定でこのプリセットを上書き
-      if (!lastState) return;
-      const cur = currentPreset();
-      const msg = lang === 'en'
-        ? `Overwrite "${tk}+${qa}" with current (${cur[0]}+${cur[1]}, warn ${cur[2]}/${cur[3]})?`
-        : `「${tk}+${qa}」を現在の設定（${cur[0]}+${cur[1]}・予鈴${cur[2]}/${cur[3]}）で上書きしますか？`;
-      if (!window.confirm(msg)) return;
-      const next = presets.slice(); next[i] = cur;
-      cmd({ action: 'setPresets', presets: next });
-    };
+    const inputs = PRESET_COLS.map((k, j) => {
+      const inp = document.createElement('input');
+      inp.type = 'number'; inp.inputMode = 'numeric'; inp.min = j === 0 ? 1 : 0; inp.max = 600; inp.step = 1;
+      inp.value = p[j]; inp.title = d[k];
+      inp.onchange = () => {                                   // この行だけ差し替えて保存（値の矯正はコア側）
+        const next = presets.slice();
+        next[i] = inputs.map((el, k2) => Math.max(k2 === 0 ? 1 : 0, Math.round(Number(el.value) || 0)));
+        cmd({ action: 'setPresets', presets: next });
+      };
+      inp.onkeydown = (e) => { if (e.key === 'Enter') inp.blur(); };
+      row.appendChild(inp);
+      return inp;
+    });
+    const load = document.createElement('button');
+    load.className = 'muted presetbtn';
+    load.textContent = d.loadBtn; load.title = d.loadHint;
+    load.onclick = () => loadPreset(...presets[i]);              // 現在の設定に反映
     const del = document.createElement('button');
     del.className = 'muted presetdel';
     del.textContent = '✕';
     del.onclick = () => {
-      const label = `${tk}+${qa}`;
+      const label = `${p[0]}+${p[1]}`;
       const msg = lang === 'en' ? `Delete preset "${label}"?` : `プリセット「${label}」を削除しますか？`;
       if (!window.confirm(msg)) return;
       const next = presets.slice(); next.splice(i, 1);
       cmd({ action: 'setPresets', presets: next });
     };
-    row.appendChild(chip); row.appendChild(upd); row.appendChild(del);
+    row.appendChild(load); row.appendChild(del);
     wrap.appendChild(row);
   });
 }
