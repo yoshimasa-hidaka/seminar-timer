@@ -73,7 +73,8 @@
   summary { cursor: pointer; color: #9aa; font-size: 15px; font-weight: 600; padding: 8px 0; }
   .hint { color: #6b7280; font-size: 12px; line-height: 1.7; }
   #conn { text-align: center; margin-top: 6px; }
-  #qr { background: #fff; border-radius: 8px; padding: 8px; margin-top: 8px; }
+  #qr, #qr2 { background: #fff; border-radius: 8px; padding: 8px; margin-top: 8px; }
+  #conn h2 { text-align: left; }
   #connUrl { font-variant-numeric: tabular-nums; color: #cdd; font-size: 14px; word-break: break-all; }
   .connbar { text-align: center; font-size: 13px; color: #7d8590; margin: 2px 0 10px; cursor: pointer; }
   .connbar b { color: #8fd0a0; font-weight: 600; font-variant-numeric: tabular-nums; }
@@ -226,6 +227,10 @@
       <div id="connUrl"></div>
       <canvas id="qr" width="0" height="0"></canvas>
       <div id="connAlt" class="hint"></div>
+      <h2 data-i18n="connCtlH"></h2>
+      <div id="connCtlUrl"></div>
+      <canvas id="qr2" width="0" height="0"></canvas>
+      <div class="hint" data-i18n="connCtlHint"></div>
     </div>
 
     <h2 data-i18n="keyH"></h2>
@@ -252,6 +257,7 @@ const I18N = {
     applySet: 'この設定を反映（リセット）',
     bellH: 'ベル確認', bellWarn: '1鈴（予鈴）', bellTalkEnd: '2鈴（講演終了）', bellFinal: '3鈴（全体終了）',
     connH: 'iPad の接続（QR）', keyH: 'キーボード操作（PC）',
+    connCtlH: '別の PC から操作する（QR）', connCtlHint: '同じ Wi-Fi の PC やスマホでこの URL を開くと、ここと同じ操作画面になります（何台でも同期）',
     keyHint: 'スペース＝開始/一時停止　R＝リセット　Q＝質疑へ　T＝講演に戻す　←/→＝±10秒　↑/↓＝±1分',
     macBellOn: '🔔 PC音 オン', macBellOff: '🔕 PC音 オフ',
     ipadBellOn: '🔔 iPad音 オン', ipadBellOff: '🔕 iPad音 オフ',
@@ -285,6 +291,7 @@ const I18N = {
     applySet: 'Apply settings (reset)',
     bellH: 'Bell check', bellWarn: '1 bell (warning)', bellTalkEnd: '2 bells (talk end)', bellFinal: '3 bells (end)',
     connH: 'iPad connection (QR)', keyH: 'Keyboard (PC)',
+    connCtlH: 'Control from another PC (QR)', connCtlHint: 'Open this URL on any PC or phone on the same Wi-Fi to get this same control screen (all stay in sync)',
     keyHint: 'Space = start/pause   R = reset   Q = to Q&A   T = back to talk   ←/→ = ±10 s   ↑/↓ = ±1 min',
     macBellOn: '🔔 PC sound ON', macBellOff: '🔕 PC sound OFF',
     ipadBellOn: '🔔 iPad sound ON', ipadBellOff: '🔕 iPad sound OFF',
@@ -645,6 +652,10 @@ function updateConn(st) {
     qrDrawnFor = url;
     document.getElementById('connUrl').textContent = url;
     if (window.renderQR) { try { window.renderQR(document.getElementById('qr'), url, 6, 4); } catch (_) {} }
+    // 別の PC 用：同じ IP/port の /control（操作画面は何台でも開けて同期する）
+    const ctlUrl = `http://${ip}:${st.port}/control`;
+    document.getElementById('connCtlUrl').textContent = ctlUrl;
+    if (window.renderQR) { try { window.renderQR(document.getElementById('qr2'), ctlUrl, 5, 4); } catch (_) {} }
   }
   // 候補が 2 つ以上ある時だけ、QR の下に IP の選択肢を並べる（Windows の仮想アダプタや PC のテザリング併用時）
   const alt = document.getElementById('connAlt');

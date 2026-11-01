@@ -168,6 +168,8 @@ function onListen() {
   console.log('                        ↑ブラウザが自動で開かなければ、この URL を手で開いてください');
   console.log(`  iPad（表示）        ：http://${ip}:${port}/display`);
   console.log('                        ↑操作画面の上部に QR も出ます');
+  console.log(`  別の PC から操作    ：http://${ip}:${port}/control`);
+  console.log('                        ↑同じ Wi-Fi なら何台でも開けて同期します（QR は操作画面の詳細に）');
   if (candidates.length > 1) {
     console.log(`  他の IP の候補      ：${candidates.slice(1).map((c) => `${c.address} (${c.name})`).join(', ')}`);
     console.log('                        iPad から繋がらない時は、操作画面の QR の下で切り替えられます');

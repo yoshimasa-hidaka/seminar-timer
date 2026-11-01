@@ -27,6 +27,8 @@ There are two ways to use it, depending on your needs.
 3. On the iPad, scan the QR (or type the URL) to open the display page. Tap the screen once to enable sound and go full screen.
 4. Put the PC and iPad on the same Wi-Fi. If there's no venue Wi-Fi, use the PC's or the iPad's hotspot (see "Offline & networking" below).
 
+To operate from another PC or phone as well, open the QR under "Control from another PC" in the control screen's details (or `http://<IP>:8080/control`). Any number of control screens stay in sync.
+
 If the iPad cannot connect, try one of the other IPs listed under the QR on the control screen. PCs with virtual networks (WSL, Hyper-V, VirtualBox, VPNs, and so on) have several candidates; the server ranks them by likelihood, but it can guess wrong.
 
 If port 8080 is in use, it falls back to 8081, and so on. The actual port is shown in the startup log and the control screen.
